@@ -1,0 +1,18 @@
+FROM dunglas/frankenphp:php8.4
+
+RUN apt-get update && apt-get install -y git unzip curl
+
+RUN install-php-extensions \
+    pdo_pgsql \
+    mbstring \
+    pcntl \
+    bcmath \
+    gd \
+    intl \
+    zip
+
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+WORKDIR /app
+
+ENV SERVER_NAME=":8000"

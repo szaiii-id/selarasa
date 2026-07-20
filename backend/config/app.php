@@ -53,6 +53,8 @@ return [
     */
 
     'url' => env('APP_URL', 'http://localhost'),
+    'frontend_pos_url' => env('FRONTEND_POS_URL', 'http://localhost:5173'),
+    'frontend_inv_url' => env('FRONTEND_INV_URL', 'http://localhost:5174'),
 
     /*
     |--------------------------------------------------------------------------
