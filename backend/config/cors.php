@@ -21,7 +21,7 @@ return [
 
     'allowed_origins' => [
         config('app.frontend_pos_url'),
-        config('app.frontend_inv_url'),
+        config('app.frontend_bck_url'),
     ],
 
     'allowed_origins_patterns' => [],
@@ -32,6 +32,6 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => false,
+    'supports_credentials' => true,
 
 ];
