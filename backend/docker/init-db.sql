@@ -1,0 +1,1 @@
+CREATE DATABASE selarasa_test_db;

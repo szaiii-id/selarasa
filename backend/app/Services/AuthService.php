@@ -3,17 +3,32 @@
 namespace App\Services;
 
 use App\Contracts\Repositories\UserRepositoryInterface;
+use App\Models\User;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 
 class AuthService
 {
     protected $userRepository;
 
     /**
+     * Define roles that are explicitly allowed to access the Back Office.
+     * Cashier and unauthorized roles are strictly prohibited here.
+     */
+    private const ALLOWED_ROLES = [
+        'admin',
+        'manager',
+        'inventory',
+    ];
+
+    /**
      * Inject the repository via constructor.
      *
-     * @param UserRepositoryInterface $userRepo
+     * @param UserRepositoryInterface $userRepository
      */
     public function __construct(UserRepositoryInterface $userRepository)
     {
@@ -21,51 +36,66 @@ class AuthService
     }
 
     /**
-     * Process the login logic and generate an authentication token.
+     * Process the login logic and authenticate user via Session.
      * 
      * @param array $credentials Contains 'username' and 'password'
-     * @return array
-     * @throws ValidationException
+     * @return User
+     * @throws ValidationException|HttpResponseException
      */
-    public function login(array $credentials): array
+    public function login(array $credentials): User
     {
         $user = $this->userRepository->findByUsername($credentials['username']);
 
-        if (!$user) {
-            $this->throwValidationError('username', 'Invalid username or password.');
+        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+            $this->throwAuthenticationError('Invalid username or password.');
         }
 
         if (!$user->is_active) {
-            $this->throwValidationError('username', 'Your account has been deactivated. Please contact the manager.');
+            $this->throwAuthenticationError('Your account has been deactivated. Please contact the manager.');
         }
 
-        if (!Hash::check($credentials['password'], $user->password)) {
-            $this->throwValidationError('username', 'Invalid username or password.');
+        /**
+         * Enforce role-based access control using the private allowed roles list.
+         */
+        if (!in_array($user->role, self::ALLOWED_ROLES, true)) {
+            $this->throwAuthenticationError('You do not have access to this area.');
         }
 
-        $user->tokens()->delete();
+        Auth::login($user);
 
-        $token = $user->createToken('selarasa_pos_token')->plainTextToken;
+        return $user;
+    }
 
-        return [
-            'user' => $user,
-            'token' => $token,
-        ];
+
+    /**
+     * Process the logout logic and terminate the current session.
+     * Placeholder for future shift-closing logic (e.g. auto close active shift
+     * for cashier/inventory roles before the session is destroyed).
+     *
+     * @param Request $request
+     * @return void
+     */
+    public function logout(Request $request): void
+    {
+        Auth::guard('web')->logout();
+
+        if ($request->hasSession()) {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
     }
 
     /**
-     * Helper method to throw a validation error.
-     * This automatically translates to an HTTP 422 JSON response in the API.
+     * Helper method to throw a global authentication error (HTTP 401).
      *
-     * @param string $field
      * @param string $message
      * @return void
-     * @throws ValidationException
+     * @throws HttpResponseException
      */
-    private function throwValidationError(string $field, string $message): void
+    private function throwAuthenticationError(string $message): void
     {
-        throw ValidationException::withMessages([
-            $field => [$message],
-        ]);
+        throw new HttpResponseException(response()->json([
+            'message' => $message
+        ], Response::HTTP_UNAUTHORIZED));
     }
 }
