@@ -26,12 +26,11 @@ class UserSeeder extends Seeder
                 'is_active' => true,
             ]);
             
-            $this->command->info('created admin account successfully');
+            $this->command->info('Super admin account created successfully.');
         } else {
-            $this->command->warn('admin account already exists, skipping creation');
+            $this->command->warn('Admin account already exists, skipping creation.');
         }
 
-                
-        $this->command->info('employees account created successfully');
+        $this->command->info('User seeding process completed.');
     }
 }

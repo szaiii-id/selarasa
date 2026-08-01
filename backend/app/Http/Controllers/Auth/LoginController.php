@@ -36,13 +36,12 @@ class LoginController extends Controller
      */
     public function __invoke(LoginRequest $request): JsonResponse
     {
-        $result = $this->authService->login($request->validated());
+        $user = $this->authService->login($request->validated());
 
         return response()->json([
             'message' => 'Login Successful.',
             'data' => [
-                'user' => new UserResource($result['user']),
-                'token' => $result['token']
+                'user' => new UserResource($user)
             ]
         ], Response::HTTP_OK);
     }
