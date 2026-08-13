@@ -16,7 +16,7 @@ const showPassword = ref(false);
 const handleLogin = async () => {
   const success = await authStore.login(form.value);
   if (success) {
-    router.push('/dashboard');
+    router.replace('/dashboard');
   }
 };
 </script>

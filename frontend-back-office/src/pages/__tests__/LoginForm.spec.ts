@@ -1,17 +1,22 @@
 import { mount } from '@vue/test-utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createTestingPinia } from '@pinia/testing';
-import { useRouter } from 'vue-router';
-import LoginForm from '../Login.vue';
-import { useAuthStore } from '../../stores/authStore';
+// Hapus import { useRouter } dari sini karena kita akan mock langsung
+import LoginForm from '../Login.vue'; 
+import { useAuthStore } from '../../stores/authStore'; 
 
-// 1. Mocking Vue Router agar bisa melacak navigasi router.push('/dashboard')
-const mockPush = vi.fn();
-vi.mock('vue-router', () => ({
-  useRouter: () => ({
-    push: mockPush,
-  }),
-}));
+// 1. Mocking Vue Router dengan mempertahankan fungsi aslinya (importOriginal)
+const mockReplace = vi.fn();
+
+vi.mock('vue-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-router')>();
+  return {
+    ...actual, // Kembalikan semua fungsi asli seperti createRouter, dll
+    useRouter: () => ({
+      replace: mockReplace,
+    }),
+  };
+});
 
 describe('Login.vue (System/Integration UI Behavior)', () => {
   beforeEach(() => {
@@ -19,7 +24,7 @@ describe('Login.vue (System/Integration UI Behavior)', () => {
   });
 
   // =========================================================================
-  // 1. DATA INTEGRITY & STATE TRANSITION (Transisi UI saat Autentikasi)
+  // 1. DATA INTEGRITY & STATE TRANSITION (Transisi UI & Interaksi Form)
   // =========================================================================
   describe('State Transition & UI Integrity', () => {
     it('menonaktifkan seluruh input & menampilkan loading spinner saat authStore.isLoading = true', () => {
@@ -27,13 +32,13 @@ describe('Login.vue (System/Integration UI Behavior)', () => {
         global: {
           plugins: [createTestingPinia({
             initialState: {
-              auth: { isLoading: true }, // Simulasi sedang dalam request HTTP
+              auth: { isLoading: true }, 
             },
           })],
         },
       });
 
-      // Validasi bahwa tombol submit berubah teks dan menjadi disabled
+      // Validasi tombol submit berubah teks dan menjadi disabled
       const submitBtn = wrapper.find('button[type="submit"]');
       expect(submitBtn.text()).toContain('Authenticating...');
       expect((submitBtn.element as HTMLButtonElement).disabled).toBe(true);
@@ -45,7 +50,29 @@ describe('Login.vue (System/Integration UI Behavior)', () => {
       });
     });
 
-    it('beralih ke halaman /dashboard hanya jika authStore.login() mengembalikan true', async () => {
+    it('mengubah tipe input password dari password menjadi text saat tombol toggle diklik', async () => {
+      const wrapper = mount(LoginForm, {
+        global: { plugins: [createTestingPinia()] },
+      });
+
+      // Cari input password berdasarkan placeholder uniknya
+      const passwordInput = wrapper.find('input[placeholder="••••••••"]');
+      // Cari tombol toggle (satu-satunya button type="button" di dalam form ini)
+      const toggleBtn = wrapper.find('button[type="button"]');
+
+      // State awal: Tipe harus 'password'
+      expect(passwordInput.attributes('type')).toBe('password');
+
+      // Transisi 1: Klik untuk menampilkan password
+      await toggleBtn.trigger('click');
+      expect(passwordInput.attributes('type')).toBe('text');
+
+      // Transisi 2: Klik lagi untuk menyembunyikan
+      await toggleBtn.trigger('click');
+      expect(passwordInput.attributes('type')).toBe('password');
+    });
+
+    it('beralih ke halaman /dashboard (replace) hanya jika authStore.login() mengembalikan true', async () => {
       const wrapper = mount(LoginForm, {
         global: {
           plugins: [createTestingPinia({ stubActions: false })],
@@ -53,10 +80,10 @@ describe('Login.vue (System/Integration UI Behavior)', () => {
       });
 
       const store = useAuthStore();
-      // Simulasi backend mengembalikan respons sukses (State beralih ke Authenticated)
+      
+      // Simulasi backend mengembalikan respons sukses
       vi.mocked(store.login).mockResolvedValueOnce(true);
 
-      // Isi form username & password
       const inputs = wrapper.findAll('input');
       await inputs[0].setValue('admin');
       await inputs[1].setValue('password123');
@@ -68,8 +95,9 @@ describe('Login.vue (System/Integration UI Behavior)', () => {
         username: 'admin',
         password: 'password123',
       });
-      // Pastikan router mengarahkan ke halaman dashboard
-      expect(mockPush).toHaveBeenCalledWith('/dashboard');
+      
+      // Menggunakan replace, BUKAN push (Sesuai kode komponen asli)
+      expect(mockReplace).toHaveBeenCalledWith('/dashboard');
     });
   });
 
@@ -77,7 +105,7 @@ describe('Login.vue (System/Integration UI Behavior)', () => {
   // 2. SECURITY, AUTHORIZATION & RATE LIMITING (Respon Penolakan dari Sistem)
   // =========================================================================
   describe('Security, Authorization & Rate Limiting Behavior', () => {
-    it('TIDAK redirect ke /dashboard jika kredensial ditolak (login mengembalikan false)', async () => {
+    it('TIDAK meredirect ke /dashboard jika kredensial ditolak (login mengembalikan false)', async () => {
       const wrapper = mount(LoginForm, {
         global: {
           plugins: [createTestingPinia({ stubActions: false })],
@@ -85,11 +113,11 @@ describe('Login.vue (System/Integration UI Behavior)', () => {
       });
 
       const store = useAuthStore();
-      vi.mocked(store.login).mockResolvedValueOnce(false); // Penolakan sistem
+      vi.mocked(store.login).mockResolvedValueOnce(false); 
 
       await wrapper.find('form').trigger('submit.prevent');
 
-      expect(mockPush).not.toHaveBeenCalled();
+      expect(mockReplace).not.toHaveBeenCalled();
     });
 
     it('menampilkan banner alert untuk pesan sistem umum (seperti 401 Unauthorized / 429 Rate Limit)', () => {
@@ -99,14 +127,16 @@ describe('Login.vue (System/Integration UI Behavior)', () => {
         global: {
           plugins: [createTestingPinia({
             initialState: {
-              auth: { errorMessage: errorMessage }, // Pesan error dari server
+              auth: { errorMessage: errorMessage },
             },
           })],
         },
       });
 
-      // Validasi bahwa kotak peringatan (Transition Banner) muncul
-      expect(wrapper.text()).toContain(errorMessage);
+      // Validasi kotak peringatan (Transition Banner) muncul & memiliki class error
+      const errorBanner = wrapper.find('.bg-error\\/10'); 
+      expect(errorBanner.exists()).toBe(true);
+      expect(errorBanner.text()).toContain(errorMessage);
     });
   });
 
@@ -130,29 +160,34 @@ describe('Login.vue (System/Integration UI Behavior)', () => {
         },
       });
 
-      // Cek apakah pesan dari skema array validationErrors dirender di bawah input yang tepat
+      // Cek apakah pesan dari skema array validationErrors dirender
       expect(wrapper.text()).toContain('Username tidak ditemukan dalam sistem.');
       expect(wrapper.text()).toContain('Password terlalu pendek.');
 
       // Cek apakah input mendapatkan class border error merah
-      const usernameInput = wrapper.find('input[type="text"]');
+      const usernameInput = wrapper.findAll('input')[0];
       expect(usernameInput.classes()).toContain('border-error');
+      expect(usernameInput.classes()).toContain('text-error');
     });
 
     it('memanggil authStore.clearError(field) saat pengguna mengetik untuk mereset state error', async () => {
       const wrapper = mount(LoginForm, {
         global: {
-          plugins: [createTestingPinia({ stubActions: true })],
+          // Aktifkan stubActions untuk memantau panggilan aksi Store tanpa mengeksekusi isinya
+          plugins: [createTestingPinia({ stubActions: true })], 
         },
       });
 
       const store = useAuthStore();
-      const usernameInput = wrapper.find('input[type="text"]');
+      const usernameInput = wrapper.findAll('input')[0];
+      const passwordInput = wrapper.findAll('input')[1];
 
-      // Simulasi user mengetik teks baru pada input username
+      // Simulasi user mengetik teks baru untuk menghapus pesan error masing-masing field
       await usernameInput.setValue('admin_baru');
-
       expect(store.clearError).toHaveBeenCalledWith('username');
+
+      await passwordInput.setValue('pass_baru');
+      expect(store.clearError).toHaveBeenCalledWith('password');
     });
   });
 });

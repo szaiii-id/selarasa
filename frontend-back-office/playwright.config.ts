@@ -29,5 +29,8 @@ export default defineConfig({
     url: 'http://selarasa:5174',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
+    env: {
+      VITE_API_BASE_URL: 'http://selarasa:8001/api/v1'
+    }
   },
 });

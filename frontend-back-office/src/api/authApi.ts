@@ -1,46 +1,77 @@
 import api from './axios';
 
+/**
+ * Checks if the XSRF-TOKEN cookie currently exists in the browser.
+ * 
+ * @returns {boolean} True if the token exists.
+ */
+const hasCsrfCookie = (): boolean => {
+  return document.cookie
+    .split('; ')
+    .some((row) => row.startsWith('XSRF-TOKEN='));
+};
+
+/**
+ * Resolves the base URL for Sanctum requests by removing the API prefix.
+ * 
+ * @returns {string} The formatted Sanctum URL.
+ */
+const getSanctumUrl = (): string => {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://selarasa:8000';
+  return `${baseUrl}/sanctum/csrf-cookie`;
+};
+
 export const authApi = {
   /**
-   * Fetches the CSRF cookie from Laravel Sanctum before authenticating.
-   * This is strictly required for Cookie-based (SPA) authentication to prevent CSRF attacks.
-   * 
-   * @returns Promise resolving to the API response.
+   * Fetches the CSRF cookie only if it does not already exist in the browser.
    */
-  getCsrfCookie() {
-    // Adjust the base URL to point to the root domain instead of the '/api/v1' prefix
-    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace('/api/v1', '') || 'http://selarasa:8000';
-    return api.get(`${baseUrl}/sanctum/csrf-cookie`);
+  async ensureCsrfCookie(): Promise<void> {
+    if (!hasCsrfCookie()) {
+      await api.get(getSanctumUrl(), { 
+        timeout: 15000 
+      });
+    }
   },
 
   /**
-   * Submits user credentials to the backend for authentication.
-   * The token will automatically be stored in a secure HttpOnly Cookie by the backend.
+   * Forces a refresh of the CSRF cookie. Used primarily for recovering from 419 errors.
+   */
+  async refreshCsrfCookie(): Promise<void> {
+    await api.get(getSanctumUrl(), { 
+      timeout: 15000 
+    });
+  },
+
+  /**
+   * Submits user credentials for authentication.
    * 
-   * @param credentials - Object containing username and password.
-   * @returns Promise resolving to the API response.
+   * @param {object} credentials - User username and password.
    */
   login(credentials: object) {
-    return api.post('/auth/login', credentials);
+    // Endpoint khusus Back Office
+    return api.post('/backoffice/auth/login', credentials, {
+      timeout: 20000
+    });
   },
 
   /**
    * Fetches the currently authenticated user's data using the session cookie.
-   * Replaces the need for localStorage by fetching state from the backend.
-   * 
-   * @returns Promise resolving to the API response.
    */
   getUser() {
-    return api.get('/auth/me');
+    return api.get('/auth/me', {
+      timeout: 8000
+    });
   },
 
   /**
-   * Sends a request to the backend to revoke the current session.
-   * Ensures the session is securely terminated on the server side.
+   * Revokes the current session on the backend.
    * 
-   * @returns Promise resolving to the API response.
+   * @param {object} config - Optional Axios request configuration (e.g., AbortController signal).
    */
-  logout() {
-    return api.post('/auth/logout');
+  logout(config = {}) {
+    return api.post('/auth/logout', {}, {
+      timeout: 4000, 
+      ...config
+    });
   }
 };
