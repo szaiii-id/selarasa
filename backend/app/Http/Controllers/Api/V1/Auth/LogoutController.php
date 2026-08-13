@@ -1,11 +1,12 @@
 <?php
 
-namespace App\Http\Controllers\Auth;
+namespace App\Http\Controllers\Api\V1\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class LogoutController extends Controller
@@ -25,8 +26,8 @@ class LogoutController extends Controller
      */
     public function __invoke(Request $request): JsonResponse
     {
-        $this->authService->logout($request);
 
+        $this->authService->logout($request);
         return response()->json([
             'message' => 'Logged out successfully.'
         ], Response::HTTP_OK);

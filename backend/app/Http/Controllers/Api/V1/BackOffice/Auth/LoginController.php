@@ -1,26 +1,35 @@
 <?php
 
-namespace App\Http\Controllers\Auth;
+namespace App\Http\Controllers\Api\V1\BackOffice\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Resources\UserResource;
 use App\Services\AuthService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class LoginController extends Controller
 {
+    /**
+     * Define roles explicitly allowed to access the Back Office application.
+     * Cashier and unauthorized roles are strictly prohibited.
+     */
+    private const ALLOWED_ROLES = [
+        'admin',
+        'manager',
+        'inventory',
+    ];
+
     /** 
      * @var AuthService
      */
     protected AuthService $authService;
 
     /**
-     * Inject the Auth Service to handle bussines logic
+     * Inject the Auth Service to handle business logic.
      * 
-     * @param Authservice $authService
+     * @param AuthService $authService
      */
     public function __construct(AuthService $authService)
     {
@@ -28,15 +37,20 @@ class LoginController extends Controller
     }
 
     /**
-     * Handle the incoming API login request.
+     * Handle the incoming Back-Office login request.
      * Using __invoke because this controller handles a single action.
      * 
-     * @param LoginRequest $request (Validation Happen automatically here)
+     * @param LoginRequest $request (Validation happens automatically here)
      * @return JsonResponse
      */
     public function __invoke(LoginRequest $request): JsonResponse
     {
-        $user = $this->authService->login($request->validated());
+        $user = $this->authService->validateCredentials(
+            $request->validated(),
+            self::ALLOWED_ROLES
+        );
+
+        $this->authService->createSession($user);
 
         return response()->json([
             'message' => 'Login Successful.',
@@ -45,5 +59,4 @@ class LoginController extends Controller
             ]
         ], Response::HTTP_OK);
     }
-
 }
