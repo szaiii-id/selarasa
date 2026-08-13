@@ -3,11 +3,11 @@
 use App\Services\AuthService;
 use App\Models\User;
 use App\Contracts\Repositories\UserRepositoryInterface;
-use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Auth\AuthenticationException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Symfony\Component\HttpFoundation\Response;
 
 uses(Tests\TestCase::class);
 
@@ -25,7 +25,7 @@ afterEach(function () {
 // 1. HAPPY & NEGATIVE PATH (Unit Level)
 // ==========================================
 
-it('returns User instance on successful login credentials (Happy Path)', function () {
+it('returns User instance on successful credentials validation (Happy Path)', function () {
     $user = new User([
         'username'  => 'manager_selarasa',
         'password'  => Hash::make('password123'),
@@ -40,12 +40,7 @@ it('returns User instance on successful login credentials (Happy Path)', functio
         ->with('manager_selarasa')
         ->andReturn($user);
 
-    // Mock Auth facade for session login
-    Auth::shouldReceive('login')
-        ->once()
-        ->with($user);
-
-    $result = $this->authService->login([
+    $result = $this->authService->validateCredentials([
         'username' => 'manager_selarasa',
         'password' => 'password123',
     ]);
@@ -54,7 +49,19 @@ it('returns User instance on successful login credentials (Happy Path)', functio
     expect($result->username)->toBe('manager_selarasa');
 });
 
-it('throws HttpResponseException when password does not match (Negative Path)', function () {
+it('creates an authenticated session for the user (Happy Path)', function () {
+    $user = new User(['username' => 'manager_selarasa']);
+    $user->id = 1;
+
+    // Mock Auth facade for session login
+    Auth::shouldReceive('login')
+        ->once()
+        ->with($user);
+
+    $this->authService->createSession($user);
+});
+
+it('throws AuthenticationException when password does not match (Negative Path)', function () {
     $user = new User([
         'username'  => 'admin_selarasa',
         'password'  => Hash::make('correct_password'),
@@ -68,31 +75,31 @@ it('throws HttpResponseException when password does not match (Negative Path)', 
         ->with('admin_selarasa')
         ->andReturn($user);
 
-    $this->authService->login([
+    $this->authService->validateCredentials([
         'username' => 'admin_selarasa',
         'password' => 'wrong_password',
     ]);
-})->throws(HttpResponseException::class);
+})->throws(AuthenticationException::class, 'Invalid username or password.');
 
 
 // ==========================================
 // 2. EQUIVALENCE PARTITIONING (Unit Level)
 // ==========================================
 
-it('throws exception when user is not found in repository (Partition: Not Found)', function () {
+it('throws AuthenticationException when user is not found in repository (Partition: Not Found)', function () {
     $this->userRepository
         ->shouldReceive('findByUsername')
         ->once()
         ->with('unknown_user')
         ->andReturn(null);
 
-    $this->authService->login([
+    $this->authService->validateCredentials([
         'username' => 'unknown_user',
         'password' => 'any_password',
     ]);
-})->throws(HttpResponseException::class);
+})->throws(AuthenticationException::class, 'Invalid username or password.');
 
-it('throws exception when user is inactive (Partition: Inactive Status)', function () {
+it('throws AccessDeniedHttpException when user is inactive (Partition: Inactive Status)', function () {
     $user = new User([
         'username'  => 'suspended_user',
         'password'  => Hash::make('password123'),
@@ -106,13 +113,13 @@ it('throws exception when user is inactive (Partition: Inactive Status)', functi
         ->with('suspended_user')
         ->andReturn($user);
 
-    $this->authService->login([
+    $this->authService->validateCredentials([
         'username' => 'suspended_user',
         'password' => 'password123',
     ]);
-})->throws(HttpResponseException::class);
+})->throws(AccessDeniedHttpException::class, 'Your account has been deactivated. Please contact the manager.');
 
-it('throws exception when user role is unauthorized for Back Office (Partition: Role Access Control)', function () {
+it('throws AccessDeniedHttpException when user role is unauthorized (Partition: Role Access Control)', function () {
     $user = new User([
         'username'  => 'cashier_user',
         'password'  => Hash::make('password123'),
@@ -126,11 +133,12 @@ it('throws exception when user role is unauthorized for Back Office (Partition: 
         ->with('cashier_user')
         ->andReturn($user);
 
-    $this->authService->login([
+    // Passing ['admin', 'manager'] as allowed roles, but user is 'cashier'
+    $this->authService->validateCredentials([
         'username' => 'cashier_user',
         'password' => 'password123',
-    ]);
-})->throws(HttpResponseException::class);
+    ], ['admin', 'manager']);
+})->throws(AccessDeniedHttpException::class, 'You do not have permission to access this area.');
 
 
 // ==========================================
@@ -146,11 +154,11 @@ it('handles boundary string lengths gracefully by returning null search from rep
         ->with($massiveString)
         ->andReturn(null);
 
-    $this->authService->login([
+    $this->authService->validateCredentials([
         'username' => $massiveString,
         'password' => 'password123',
     ]);
-})->throws(HttpResponseException::class);
+})->throws(AuthenticationException::class);
 
 
 // ==========================================
