@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  /* Konfigurasi Palet Terracotta (Selarasa POS) */
+  --color-primary: #C86B5E;          /* Terracotta / Merah Bata yang hangat, artisanal, & elegan */
+  --color-background: #FDFBF7;       /* Krem hangat untuk latar belakang utama */
+  --color-surface: #FFFFFF;          /* Putih bersih untuk kartu menu, modal, & form */
+  
+  /* Teks & Garis */
+  --color-text-primary: #4A3F35;     /* Cokelat gelap kopi untuk teks utama agar nyaman di mata */
+  --color-text-secondary: #8C7E73;   /* Cokelat abu kehangatan untuk label & teks secondary */
+  --color-custom-border: #E8E3DB;    /* Garis pembatas yang lembut & rapi */
+  --color-disabled: #D1CCC5;         /* Tombol atau input non-aktif */
+  
+  /* Status & Peringatan */
+  --color-info: #6B8BA4;             /* Biru kalem untuk informasi umum */
+  --color-success: #7D9D78;          /* Hijau sage untuk status berhasil / selesai */
+  --color-warning: #D9A05B;          /* Kuning mustard hangat untuk peringatan / stok menipis */
+  --color-error: #B85C5C;            /* Merah bata tua untuk error / stok habis / batal */
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text-primary);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+}
