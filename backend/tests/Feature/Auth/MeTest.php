@@ -5,6 +5,8 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 uses(RefreshDatabase::class);
@@ -110,6 +112,10 @@ it('blocks requests after exceeding the API rate limit with 429 Too Many Request
     $user = User::factory()->create([
         'is_active' => true,
     ]);
+
+    // Bersihkan rate limiter untuk user ID ini agar test tidak terpengaruh test sebelumnya
+    $throttleKey = Str::transliterate((string) $user->id);
+    RateLimiter::clear($throttleKey);
 
     // 2. Act: Simulate reaching the 60 requests/minute threshold
     for ($i = 0; $i < 60; $i++) {
