@@ -1,3 +1,4 @@
 .env
 frontend-pos/.env
 frontend-inventory/.env
+.vite 
