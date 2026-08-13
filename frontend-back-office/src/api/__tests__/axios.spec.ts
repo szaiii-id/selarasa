@@ -11,16 +11,17 @@ describe('api (Axios Response Interceptors)', () => {
 
   beforeEach(() => {
     mock.reset();
-    // Mocking window.location.pathname dan href agar bisa dites di jsdom
+    // Mocking window.location.pathname dan fungsi replace agar bisa dipantau (spy) oleh vitest
     delete (window as any).location;
     window.location = {
       pathname: '/dashboard',
-      href: '',
+      replace: vi.fn(), // Menggunakan vi.fn() agar kita bisa mengecek apakah fungsi ini dipanggil
     } as any;
   });
 
   afterEach(() => {
     window.location = originalLocation;
+    vi.clearAllMocks();
   });
 
   // =========================================================================
@@ -36,12 +37,14 @@ describe('api (Axios Response Interceptors)', () => {
   // =========================================================================
   // 2. SECURITY & RECOVERY: HTTP 401 Unauthorized
   // =========================================================================
-  it('redirect ke /login saat terjadi HTTP 401 dan user BUKAN di halaman /login', async () => {
+  it('redirect (replace) ke /login saat terjadi HTTP 401 dan user BUKAN di halaman /login', async () => {
     window.location.pathname = '/dashboard';
     mock.onGet('/test-401').reply(401);
 
     await expect(api.get('/test-401')).rejects.toThrow();
-    expect(window.location.href).toBe('/login');
+    
+    // Pastikan window.location.replace dipanggil dengan parameter '/login'
+    expect(window.location.replace).toHaveBeenCalledWith('/login');
   });
 
   it('TIDAK redirect ke /login saat terjadi HTTP 401 jika user SUDAH di halaman /login', async () => {
@@ -49,8 +52,19 @@ describe('api (Axios Response Interceptors)', () => {
     mock.onGet('/test-401-login').reply(401);
 
     await expect(api.get('/test-401-login')).rejects.toThrow();
-    // href tidak boleh berubah menjadi /login lagi (mencegah redirect loop)
-    expect(window.location.href).not.toBe('/login');
+    
+    // Pastikan replace TIDAK dipanggil agar tidak terjadi infinite loop
+    expect(window.location.replace).not.toHaveBeenCalled();
+  });
+
+  it('TIDAK redirect ke /login saat terjadi HTTP 401 jika request adalah endpoint auth/me (Initial Load)', async () => {
+    window.location.pathname = '/dashboard';
+    mock.onGet('/auth/me').reply(401); // Endpoint pengecualian
+
+    await expect(api.get('/auth/me')).rejects.toThrow();
+    
+    // Pastikan replace TIDAK dipanggil karena diabaikan oleh isAuthCheck
+    expect(window.location.replace).not.toHaveBeenCalled();
   });
 
   // =========================================================================

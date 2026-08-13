@@ -2,23 +2,22 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { authApi } from '../api/authApi';
 import type { User } from '../types/auth';
+import router from '@/router';
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null);
   const isLoading = ref<boolean>(false);
-  
+  const isSessionChecked = ref<boolean>(false);
+
   const errorMessage = ref<string | null>(null);
   const validationErrors = ref<Record<string, string[]>>({});
 
   const isAuthenticated = computed(() => user.value !== null);
 
   /**
-   * Fetches the currently authenticated user's data from the backend using the session cookie.
-   * This is used to restore the user session on page refresh.
-   * Role eligibility is enforced entirely by the backend during login (AuthService),
-   * so no role check is duplicated here.
+   * Fetches the authenticated user's data to restore session on page refresh.
    * 
-   * @returns {Promise<boolean>} A boolean indicating if a valid session exists.
+   * @returns {Promise<boolean>} True if a valid session exists.
    */
   const fetchUser = async (): Promise<boolean> => {
     try {
@@ -35,17 +34,16 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (error) {
       user.value = null;
       return false;
+    } finally {
+      isSessionChecked.value = true;
     }
   };
 
   /**
-   * Authenticates the user and establishes a secure HttpOnly cookie session.
-   * Role-based access restriction (e.g. blocking 'cashier') is fully handled
-   * by the backend (AuthService) — it returns 401 before the session is created,
-   * so this function never needs to re-check the role on its own.
+   * Authenticates the user with Smart CSRF check and automatic retry on 419 errors.
    * 
    * @param {Record<string, any>} credentials - The user's login credentials.
-   * @returns {Promise<boolean>} A boolean indicating success or failure.
+   * @returns {Promise<boolean>} True if login is successful.
    */
   const login = async (credentials: Record<string, any>): Promise<boolean> => {
     isLoading.value = true;
@@ -53,8 +51,10 @@ export const useAuthStore = defineStore('auth', () => {
     validationErrors.value = {}; 
     
     try {
-      await authApi.getCsrfCookie();
+      // 1. Smart CSRF: Hanya fetch dari server jika cookie belum ada
+      await authApi.ensureCsrfCookie();
 
+      // 2. Login & ambil data user dalam 1 request (Single-Roundtrip)
       const response = await authApi.login(credentials);
       const userData = response.data?.data?.user;
 
@@ -63,19 +63,36 @@ export const useAuthStore = defineStore('auth', () => {
       }
 
       user.value = userData;
+      isSessionChecked.value = true;
       
       return true;
     } catch (error: any) {
       const status = error.response?.status;
 
+      // 3. Auto-Retry: Jika token kedaluwarsa, ambil CSRF baru dan ulangi login otomatis 1x
+      if (status === 419 && !credentials._isRetry) {
+        try {
+          await authApi.refreshCsrfCookie();
+          return await login({ ...credentials, _isRetry: true });
+        } catch (retryError) {
+          errorMessage.value = 'Security session expired. Please try logging in again.';
+          return false;
+        }
+      }
+
+      // 4. Handle error lainnya (Validasi, Auth, Timeout)
       if (status === 422) {
         validationErrors.value = error.response.data.errors || {};
         errorMessage.value = null; 
-      } else if (status === 401) {
+      } else if (status === 401 || status === 403) {
         errorMessage.value = error.response?.data?.message || 'Authentication failed. Please try again.';
         validationErrors.value = {}; 
+      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage.value = 'Slow network connection. Please check your internet and try again.';
+      } else if (!error.response && error.message) {
+        errorMessage.value = error.message;
       } else {
-        errorMessage.value = error.message || 'An error occurred on the server.';
+        errorMessage.value = error.response?.data?.message || 'An error occurred on the server.';
       }
       
       return false;
@@ -85,9 +102,9 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   /**
-   * Clears the validation error for a specific field when the user starts typing.
+   * Clears the validation error for a specific field.
    * 
-   * @param {string} field - The name of the form field (e.g., 'username' or 'password').
+   * @param {string} field - The name of the form field.
    */
   const clearError = (field: string) => {
     if (validationErrors.value[field]) {
@@ -99,16 +116,27 @@ export const useAuthStore = defineStore('auth', () => {
   };
 
   /**
-   * Clears the user session on the server and removes local state.
+   * Clears the user session on the server and local state.
    */
   const logout = async (): Promise<void> => {
+    isLoading.value = true;
+    errorMessage.value = null;
+
     try {
-      await authApi.logout();
-    } catch (error) {
-      console.error('Logout failed on the server:', error);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000); 
+
+      await authApi.logout({ signal: controller.signal });
+
+      clearTimeout(timeoutId);
+    } catch (error: any) {
+      console.warn('Server logout delayed or disconnected. Proceeding with local redirect:', error?.message);
     } finally {
       user.value = null;
-      window.location.href = '/login';
+      isSessionChecked.value = true;
+      isLoading.value = false;
+
+      router.replace({ name: 'Login' });
     }
   };
 
@@ -116,6 +144,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isAuthenticated,
     isLoading, 
+    isSessionChecked,
     errorMessage, 
     validationErrors,
     clearError,

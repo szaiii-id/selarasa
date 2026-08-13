@@ -6,7 +6,6 @@ import './assets/main.css'
 import App from './App.vue'
 import router from './router'
 
-// 1. Import the global error handler utility
 import { setupGlobalErrorHandler } from './utils/errorHandler'
 
 const app = createApp(App)
