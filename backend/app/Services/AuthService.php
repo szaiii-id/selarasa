@@ -4,68 +4,62 @@ namespace App\Services;
 
 use App\Contracts\Repositories\UserRepositoryInterface;
 use App\Models\User;
-use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class AuthService
 {
-    protected $userRepository;
-
     /**
-     * Define roles that are explicitly allowed to access the Back Office.
-     * Cashier and unauthorized roles are strictly prohibited here.
+     * Inject the repository via Constructor Property Promotion.
      */
-    private const ALLOWED_ROLES = [
-        'admin',
-        'manager',
-        'inventory',
-    ];
+    public function __construct(
+        protected UserRepositoryInterface $userRepository
+    ) {}
 
     /**
-     * Inject the repository via constructor.
+     * Strictly validate user credentials, account status, and role
+     * WITHOUT creating a session/cookie.
      *
-     * @param UserRepositoryInterface $userRepository
-     */
-    public function __construct(UserRepositoryInterface $userRepository)
-    {
-        $this->userRepository = $userRepository;
-    }
-
-    /**
-     * Process the login logic and authenticate user via Session.
-     * 
-     * @param array $credentials Contains 'username' and 'password'
+     * @param array{username: string, password: string} $credentials
+     * @param array<int, string> $allowedRoles
      * @return User
-     * @throws ValidationException|HttpResponseException
+     * @throws AuthenticationException|AccessDeniedHttpException
      */
-    public function login(array $credentials): User
+    public function validateCredentials(array $credentials, array $allowedRoles = []): User
     {
         $user = $this->userRepository->findByUsername($credentials['username']);
 
+        // 1. Cek keberadaan user & kecocokan password (HTTP 401)
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
-            $this->throwAuthenticationError('Invalid username or password.');
+            throw new AuthenticationException('Invalid username or password.');
         }
 
+        // 2. Cek status aktif akun (HTTP 403)
         if (!$user->is_active) {
-            $this->throwAuthenticationError('Your account has been deactivated. Please contact the manager.');
+            throw new AccessDeniedHttpException('Your account has been deactivated. Please contact the manager.');
         }
 
-        /**
-         * Enforce role-based access control using the private allowed roles list.
-         */
-        if (!in_array($user->role, self::ALLOWED_ROLES, true)) {
-            $this->throwAuthenticationError('You do not have access to this area.');
+        // 3. Cek apakah role diizinkan (jika daftar $allowedRoles diberikan oleh Controller) (HTTP 403)
+        if (!empty($allowedRoles) && !in_array(strtolower($user->role), array_map('strtolower', $allowedRoles), true)) {
+            throw new AccessDeniedHttpException('Invalid credentials or insufficient permissions to access this area.');
         }
-
-        Auth::login($user);
 
         return $user;
     }
 
+    /**
+     * Create an authenticated session for a validated user.
+     *
+     * @param User $user
+     * @return void
+     */
+    public function createSession(User $user): void
+    {
+        Auth::login($user);
+    }
 
     /**
      * Process the logout logic and terminate the current session.
@@ -83,19 +77,5 @@ class AuthService
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         }
-    }
-
-    /**
-     * Helper method to throw a global authentication error (HTTP 401).
-     *
-     * @param string $message
-     * @return void
-     * @throws HttpResponseException
-     */
-    private function throwAuthenticationError(string $message): void
-    {
-        throw new HttpResponseException(response()->json([
-            'message' => $message
-        ], Response::HTTP_UNAUTHORIZED));
     }
 }

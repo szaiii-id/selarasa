@@ -14,21 +14,47 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        $adminExists = User::where('role', 'admin')->exists();
-
-        if (!$adminExists) {
-            User::create([
-                'name' => 'Super Admin SelaRasa',
+        // Daftar akun yang akan disemai (1 akun per role)
+        $users = [
+            [
+                'name'     => 'Super Admin SelaRasa',
                 'username' => 'admin',
-                'password' => Hash::make('selarasa01'), 
-                'pin_code' => '123456',
-                'role' => 'admin',
-                'is_active' => true,
-            ]);
-            
-            $this->command->info('Super admin account created successfully.');
-        } else {
-            $this->command->warn('Admin account already exists, skipping creation.');
+                'role'     => 'admin',
+            ],
+            [
+                'name'     => 'Manager SelaRasa',
+                'username' => 'manager',
+                'role'     => 'manager',
+            ],
+            [
+                'name'     => 'Staf Inventory',
+                'username' => 'inventory',
+                'role'     => 'inventory',
+            ],
+            [
+                'name'     => 'Cashier SelaRasa',
+                'username' => 'cashier',
+                'role'     => 'cashier',
+            ]
+        ];
+
+        foreach ($users as $userData) {
+            $roleExists = User::where('role', $userData['role'])->exists();
+
+            if (!$roleExists) {
+                User::create([
+                    'name'      => $userData['name'],
+                    'username'  => $userData['username'],
+                    'password'  => Hash::make('selarasa01'), 
+                    'pin_code'  => '123456',
+                    'role'      => $userData['role'],
+                    'is_active' => true,
+                ]);
+                
+                $this->command->info("Account with role '{$userData['role']}' created successfully.");
+            } else {
+                $this->command->warn("Account with role '{$userData['role']}' already exists, skipping creation.");
+            }
         }
 
         $this->command->info('User seeding process completed.');

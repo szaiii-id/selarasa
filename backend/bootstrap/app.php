@@ -31,6 +31,13 @@ return Application::configure(basePath: dirname(__DIR__))
          */
         $middleware->statefulApi();
 
+        // // ============================================
+        // // TAMBAHKAN INI - CSRF BYPASS UNTUK ROUTE TEST
+        // // ============================================
+        // $middleware->validateCsrfTokens(
+        //     except: ['api-test/*']
+        // );
+
         /**
          * Register application middleware aliases for route assignment.
          */
@@ -39,10 +46,11 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        /**
-         * Force consistent JSON responses for API routes when exceptions occur.
-         */
-        $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
-        );
-    })->create();
+    /**
+     * Force consistent JSON responses for API routes when exceptions occur.
+     * Includes api-test/* so load-testing routes behave identically to production API.
+     */
+    $exceptions->shouldRenderJsonWhen(
+        fn (Request $request) => $request->is('api/*') || $request->is('api-test/*'),
+    );
+})->create();
