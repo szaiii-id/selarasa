@@ -138,7 +138,7 @@ it('throws AccessDeniedHttpException when user role is unauthorized (Partition: 
         'username' => 'cashier_user',
         'password' => 'password123',
     ], ['admin', 'manager']);
-})->throws(AccessDeniedHttpException::class, 'You do not have permission to access this area.');
+})->throws(AccessDeniedHttpException::class, 'Invalid credentials or insufficient permissions to access this area.');
 
 
 // ==========================================
