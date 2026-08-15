@@ -20,54 +20,44 @@ jobs:
         uses: actions/checkout@v4
 
       # ==========================================
-      # 1. SETUP BACKEND (LARAVEL) UNTUK E2E TEST
+      # 1. SETUP BACKEND (VIA DOCKER COMPOSE)
       # ==========================================
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.3' # Sesuaikan dengan versi PHP backend Anda
-          extensions: mbstring, xml, bcmath, sqlite3, pdo_sqlite
-          tools: composer:v2
-
-      - name: Install Backend Dependencies
-        working-directory: ./backend
-        run: composer update -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-
-      - name: Prepare Backend & Start Server
-        working-directory: ./backend
+      - name: Prepare & Start Backend Infrastructure
         run: |
-          cp .env.example .env
+          # 1. Buat file .env di root untuk memuaskan variabel di docker-compose.yml
+          echo "PROJECT_NAME=selarasa_ci" >> .env
+          echo "DB_NAME=testing_db" >> .env
+          echo "DB_USER=testing_user" >> .env
+          echo "DB_PASSWORD=secret" >> .env
+          echo "REDIS_PASSWORD=secret" >> .env
           
-          # 1. Pastikan SQLite menggunakan jalur absolut agar tidak tersasar
-          sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=sqlite/' .env
-          sed -i '/DB_DATABASE=/d' .env
-          echo "DB_DATABASE=$PWD/database/database.sqlite" >> .env
+          # 2. Siapkan .env.testing untuk backend Laravel
+          cp ./backend/.env.example ./backend/.env.testing
+          sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=pgsql/' ./backend/.env.testing
+          sed -i 's/DB_HOST=.*/DB_HOST=db/' ./backend/.env.testing
+          sed -i 's/DB_PORT=.*/DB_PORT=5432/' ./backend/.env.testing
+          sed -i 's/DB_DATABASE=.*/DB_DATABASE=testing_db/' ./backend/.env.testing
+          sed -i 's/DB_USERNAME=.*/DB_USERNAME=testing_user/' ./backend/.env.testing
+          sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=secret/' ./backend/.env.testing
+          sed -i 's/REDIS_HOST=.*/REDIS_HOST=redis/' ./backend/.env.testing
           
-          # 2. Bebaskan CORS secara paksa khusus untuk lingkungan CI
-          echo "APP_URL=http://127.0.0.1:8001" >> .env
-          echo "FRONTEND_URL=http://127.0.0.1:5173,http://127.0.0.1:5174" >> .env
-          echo "SANCTUM_STATEFUL_DOMAINS=127.0.0.1:5173,127.0.0.1:5174" >> .env
-          echo "CORS_ALLOWED_ORIGINS=*" >> .env
+          # Bebaskan CORS untuk pengujian E2E lokal di CI
+          echo "APP_URL=http://127.0.0.1:8001" >> ./backend/.env.testing
+          echo "FRONTEND_URL=http://127.0.0.1:5173,http://127.0.0.1:5174" >> ./backend/.env.testing
+          echo "SANCTUM_STATEFUL_DOMAINS=127.0.0.1:5173,127.0.0.1:5174" >> ./backend/.env.testing
+          echo "CORS_ALLOWED_ORIGINS=*" >> ./backend/.env.testing
+
+          # 3. Bangun dan jalankan kontainer database, redis, dan backend_test di background
+          docker compose up -d db redis backend_test
           
-          # 3. Siapkan Database
-          touch database/database.sqlite
-          php artisan key:generate
-          php artisan migrate --force
-          php artisan db:seed --force
+          # 4. Beri waktu agar PostgreSQL di dalam Docker benar-benar siap menerima koneksi
+          echo "Menunggu database PostgreSQL siap..."
+          sleep 15
           
-          # 4. Jalankan server dengan 'nohup' agar sistem CI tidak membunuhnya
-          nohup php artisan serve --host=127.0.0.1 --port=8001 > laravel-server.log 2>&1 &
-          
-          # 5. Tunggu 3 detik, lalu tes denyut nadi server
-          sleep 3
-          echo "Menguji koneksi ke Backend..."
-          if ! curl -s http://127.0.0.1:8001 > /dev/null; then
-            echo "SERVER LARAVEL GAGAL MENYALA! Berikut adalah log error-nya:"
-            cat laravel-server.log
-            exit 1
-          else
-            echo "Server Laravel berhasil menyala dan siap menerima request!"
-          fi
+          # 5. Jalankan setup database di dalam kontainer backend_test (-T untuk mematikan mode interaktif TTY di CI)
+          docker compose exec -T backend_test php artisan key:generate --env=testing
+          docker compose exec -T backend_test php artisan migrate --force --env=testing
+          docker compose exec -T backend_test php artisan db:seed --force --env=testing
 
       # ==========================================
       # 2. SETUP FRONTEND (VUE)
@@ -88,7 +78,7 @@ jobs:
       - name: Build Application
         working-directory: ./${{ matrix.app }}
         env:
-          # Arahkan ke server Laravel lokal yang menyala di background CI
+          # Arahkan ke port 8001 (Port ini diekspos oleh backend_test di docker-compose)
           VITE_API_BASE_URL: http://127.0.0.1:8001/api/v1
           VITE_APP_NAME: ${{ matrix.app == 'frontend-back-office' && 'SelaRasa Back Office' || 'SelaRasa POS' }}
         run: npm run build
@@ -103,8 +93,8 @@ jobs:
       - name: Run E2E Tests (Playwright)
         working-directory: ./${{ matrix.app }}
         env:
-          CI: true # Memberitahu playwright.config.ts bahwa ini di CI
-          # Arahkan ke server Laravel lokal yang menyala di background CI
+          CI: true
+          # Arahkan kembali ke backend Docker
           VITE_API_BASE_URL: http://127.0.0.1:8001/api/v1
           VITE_APP_NAME: ${{ matrix.app == 'frontend-back-office' && 'SelaRasa Back Office' || 'SelaRasa POS' }}
         run: npx playwright test
