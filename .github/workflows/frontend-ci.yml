@@ -24,14 +24,14 @@ jobs:
       # ==========================================
       - name: Prepare & Start Backend Infrastructure
         run: |
-          # 1. Buat file .env di root untuk memuaskan variabel di docker-compose.yml
+          # 1. Buat file .env di root
           echo "PROJECT_NAME=selarasa_ci" >> .env
           echo "DB_NAME=testing_db" >> .env
           echo "DB_USER=testing_user" >> .env
           echo "DB_PASSWORD=secret" >> .env
           echo "REDIS_PASSWORD=secret" >> .env
           
-          # 2. Siapkan .env.testing untuk backend Laravel
+          # 2. Siapkan .env.testing
           cp ./backend/.env.example ./backend/.env.testing
           sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=pgsql/' ./backend/.env.testing
           sed -i 's/DB_HOST=.*/DB_HOST=db/' ./backend/.env.testing
@@ -41,20 +41,33 @@ jobs:
           sed -i 's/DB_PASSWORD=.*/DB_PASSWORD=secret/' ./backend/.env.testing
           sed -i 's/REDIS_HOST=.*/REDIS_HOST=redis/' ./backend/.env.testing
           
-          # Bebaskan CORS untuk pengujian E2E lokal di CI
+          # Bebaskan CORS
           echo "APP_URL=http://127.0.0.1:8001" >> ./backend/.env.testing
           echo "FRONTEND_URL=http://127.0.0.1:5173,http://127.0.0.1:5174" >> ./backend/.env.testing
           echo "SANCTUM_STATEFUL_DOMAINS=127.0.0.1:5173,127.0.0.1:5174" >> ./backend/.env.testing
           echo "CORS_ALLOWED_ORIGINS=*" >> ./backend/.env.testing
 
-          # 3. Bangun dan jalankan kontainer database, redis, dan backend_test di background
-          docker compose up -d db redis backend_test
+          # 3. Nyalakan Database dan Redis lebih dulu
+          docker compose up -d db redis
           
-          # 4. Beri waktu agar PostgreSQL di dalam Docker benar-benar siap menerima koneksi
-          echo "Menunggu database PostgreSQL siap..."
-          sleep 15
+          # 4. Instal dependensi Composer ke dalam volume Docker (Sangat Penting!)
+          # Perintah 'run --rm' akan menjalankan composer lalu langsung menutup kontainer sementaranya.
+          docker compose run --rm backend_test composer update -q --no-ansi --no-interaction --no-progress --prefer-dist
           
-          # 5. Jalankan setup database di dalam kontainer backend_test (-T untuk mematikan mode interaktif TTY di CI)
+          # 5. Sekarang nyalakan kontainer backend sesungguhnya di background
+          docker compose up -d backend_test
+          
+          echo "Menunggu kontainer stabil..."
+          sleep 10
+          
+          # 6. Deteksi Log Jika Mati
+          if ! docker compose exec -T backend_test echo "Backend is alive"; then
+            echo "🚨 KONTAINER BACKEND MATI! Berikut log error-nya:"
+            docker compose logs backend_test
+            exit 1
+          fi
+
+          # 7. Setup Database Laravel
           docker compose exec -T backend_test php artisan key:generate --env=testing
           docker compose exec -T backend_test php artisan migrate --force --env=testing
           docker compose exec -T backend_test php artisan db:seed --force --env=testing
