@@ -36,19 +36,26 @@ jobs:
       - name: Prepare Backend & Start Server
         working-directory: ./backend
         run: |
-          # Duplikasi file environment
           cp .env.example .env
           
-          # Paksa penggunaan SQLite untuk testing di CI
+          # Paksa penggunaan SQLite dan sesuaikan APP_URL agar tidak kena blokir CORS
           sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=sqlite/' .env
+          sed -i 's/APP_URL=.*/APP_URL=http:\/\/127.0.0.1:8001/' .env
           touch database/database.sqlite
           
-          # Generate key dan jalankan migrasi
           php artisan key:generate
+          
+          # 1. Jalankan Migrasi
           php artisan migrate --force
           
-          # Jalankan server Laravel di background pada port 8001
-          php artisan serve --port=8001 &
+          # 2. ISI DATABASE (Seeding)! Ini kunci agar Playwright bisa login
+          php artisan db:seed --force
+          
+          # 3. Jalankan server dengan host eksplisit
+          php artisan serve --host=127.0.0.1 --port=8001 &
+          
+          # 4. Beri nafas 2 detik agar server Laravel benar-benar "On" sebelum lanjut
+          sleep 2
 
       # ==========================================
       # 2. SETUP FRONTEND (VUE)
