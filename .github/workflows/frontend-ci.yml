@@ -38,24 +38,36 @@ jobs:
         run: |
           cp .env.example .env
           
-          # Paksa penggunaan SQLite dan sesuaikan APP_URL agar tidak kena blokir CORS
+          # 1. Pastikan SQLite menggunakan jalur absolut agar tidak tersasar
           sed -i 's/DB_CONNECTION=.*/DB_CONNECTION=sqlite/' .env
-          sed -i 's/APP_URL=.*/APP_URL=http:\/\/127.0.0.1:8001/' .env
+          sed -i '/DB_DATABASE=/d' .env
+          echo "DB_DATABASE=$PWD/database/database.sqlite" >> .env
+          
+          # 2. Bebaskan CORS secara paksa khusus untuk lingkungan CI
+          echo "APP_URL=http://127.0.0.1:8001" >> .env
+          echo "FRONTEND_URL=http://127.0.0.1:5173,http://127.0.0.1:5174" >> .env
+          echo "SANCTUM_STATEFUL_DOMAINS=127.0.0.1:5173,127.0.0.1:5174" >> .env
+          echo "CORS_ALLOWED_ORIGINS=*" >> .env
+          
+          # 3. Siapkan Database
           touch database/database.sqlite
-          
           php artisan key:generate
-          
-          # 1. Jalankan Migrasi
           php artisan migrate --force
-          
-          # 2. ISI DATABASE (Seeding)! Ini kunci agar Playwright bisa login
           php artisan db:seed --force
           
-          # 3. Jalankan server dengan host eksplisit
-          php artisan serve --host=127.0.0.1 --port=8001 &
+          # 4. Jalankan server dengan 'nohup' agar sistem CI tidak membunuhnya
+          nohup php artisan serve --host=127.0.0.1 --port=8001 > laravel-server.log 2>&1 &
           
-          # 4. Beri nafas 2 detik agar server Laravel benar-benar "On" sebelum lanjut
-          sleep 2
+          # 5. Tunggu 3 detik, lalu tes denyut nadi server
+          sleep 3
+          echo "Menguji koneksi ke Backend..."
+          if ! curl -s http://127.0.0.1:8001 > /dev/null; then
+            echo "SERVER LARAVEL GAGAL MENYALA! Berikut adalah log error-nya:"
+            cat laravel-server.log
+            exit 1
+          else
+            echo "Server Laravel berhasil menyala dan siap menerima request!"
+          fi
 
       # ==========================================
       # 2. SETUP FRONTEND (VUE)
