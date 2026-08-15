@@ -59,7 +59,7 @@ jobs:
           docker compose up -d db redis
           
           # 4. Instal dependensi Composer (Sekarang aman karena tidak mencari tabel cache)
-          docker compose run --rm backend_test composer update -q --no-ansi --no-interaction --no-progress --prefer-dist
+          docker compose run --rm --entrypoint="" backend_test composer update -q --no-ansi --no-interaction --no-progress --prefer-dist
           
           # 5. Nyalakan kontainer backend
           docker compose up -d backend_test
