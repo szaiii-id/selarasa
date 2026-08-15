@@ -35,8 +35,14 @@ jobs:
 
       - name: Run Migrations
         working-directory: ./backend
-        run: php artisan migrate --env=testing --database=sqlite --force
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
+        run: php artisan migrate --force
 
       - name: Execute Tests via Pest
         working-directory: ./backend
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
         run: php artisan test
