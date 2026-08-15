@@ -11,8 +11,6 @@ jobs:
     name: CI - ${{ matrix.app }}
     runs-on: ubuntu-latest
     
-    # Matrix ini akan menjalankan job yang sama dua kali: 
-    # satu untuk frontend-back-office, satu lagi untuk frontend-pos
     strategy:
       matrix:
         app: [frontend-back-office, frontend-pos]
@@ -24,9 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20' 
-          cache: 'npm'
-          cache-dependency-path: ./${{ matrix.app }}/package-lock.json
+          node-version: '24' # Menggunakan Node 24 agar sesuai dengan standar terbaru GitHub
 
       - name: Install Dependencies
         working-directory: ./${{ matrix.app }}
