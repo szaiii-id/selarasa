@@ -19,23 +19,24 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring, xml, bcmath, sqlite3
+          extensions: mbstring, xml, bcmath, sqlite3, pdo_sqlite, curl, dom, fileinfo
           coverage: none
 
       - name: Install Composer Dependencies
         working-directory: ./backend
-        run: composer update -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+        run: composer install -q --no-ansi --no-interaction --no-progress --prefer-dist
 
       - name: Prepare Environment
         working-directory: ./backend
         run: |
           cp .env.example .env
           php artisan key:generate
+          touch database/database.sqlite
 
       - name: Run Migrations
         working-directory: ./backend
         run: php artisan migrate --env=testing --database=sqlite --force
 
-      - name: Execute Tests via PHPUnit/Pest
+      - name: Execute Tests via Pest
         working-directory: ./backend
         run: php artisan test
