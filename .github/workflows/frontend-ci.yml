@@ -46,14 +46,12 @@ jobs:
           echo "CACHE_DRIVER=file" >> ./backend/.env.testing
           echo "SESSION_DRIVER=file" >> ./backend/.env.testing
           
-          # Konfigurasi Jaringan & Keamanan Sanctum
+          # ✅ Konfigurasi Jaringan & Keamanan Sanctum — pakai nama variable yang BENAR
           echo "APP_URL=http://127.0.0.1:8001" >> ./backend/.env.testing
-          echo "FRONTEND_URL=http://127.0.0.1:5173,http://127.0.0.1:5174,http://localhost:5173,http://localhost:5174" >> ./backend/.env.testing
+          echo "FRONTEND_POS_URL=http://127.0.0.1:5173" >> ./backend/.env.testing
+          echo "FRONTEND_BCK_URL=http://127.0.0.1:5174" >> ./backend/.env.testing
           echo "SANCTUM_STATEFUL_DOMAINS=127.0.0.1:5173,127.0.0.1:5174,localhost:5173,localhost:5174" >> ./backend/.env.testing
           echo "SESSION_DOMAIN=127.0.0.1" >> ./backend/.env.testing
-          
-          sed -i '/^CORS_ALLOWED_ORIGINS=/d' ./backend/.env.testing
-          echo "CORS_ALLOWED_ORIGINS=http://127.0.0.1:5173,http://127.0.0.1:5174,http://localhost:5173,http://localhost:5174" >> ./backend/.env.testing
 
           echo "OCTANE_HOST=0.0.0.0" >> ./backend/.env.testing
           echo "SERVER_NAME=:8000" >> ./backend/.env.testing
