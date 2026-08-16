@@ -3,6 +3,8 @@ name: Backend Performance Test (K6)
 # Hanya dijalankan secara manual (mencegah server CI hang jika dijalankan setiap kali push)
 on:
   workflow_dispatch:
+  push:
+    branches: [ "main", "develop" ]
 
 jobs:
   k6-load-test:
