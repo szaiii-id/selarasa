@@ -41,6 +41,8 @@ jobs:
           # Pastikan host diarahkan ke nama service kontainer
           sed -i 's/DB_HOST=selarasa_db/DB_HOST=db/g' ./backend/.env.testing
           sed -i 's/REDIS_HOST=selarasa_redis/REDIS_HOST=redis/g' ./backend/.env.testing
+          # Arahkan cache store ke redis agar Rate Limiting persisten antar request
+          sed -i 's/CACHE_STORE=array/CACHE_STORE=redis/g' ./backend/.env.testing
           
           echo "OCTANE_HOST=0.0.0.0" >> ./backend/.env.testing
           echo "SERVER_NAME=:8000" >> ./backend/.env.testing
