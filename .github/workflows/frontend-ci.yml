@@ -24,11 +24,10 @@ jobs:
       # ==========================================
       - name: Prepare & Start Backend Infrastructure
         run: |
-          # 1. DUNIA ROOT: Gunakan SINGLE QUOTE ('') agar tanda seru (!) tidak merusak bash!
-          # Kita masukkan semua variasi nama variabel agar tidak ada yang terlewat oleh docker-compose
+          # 1. DUNIA ROOT: Gunakan nama dummy agar tidak menabrak file init-db.sql Anda!
           echo 'PROJECT_NAME=selarasa_ci' >> .env
-          echo 'DB_NAME=selarasa_test_db' >> .env
-          echo 'DB_DATABASE=selarasa_test_db' >> .env
+          echo 'DB_NAME=selarasa_dummy' >> .env
+          echo 'DB_DATABASE=selarasa_dummy' >> .env
           echo 'DB_USER=selarasa_dev' >> .env
           echo 'DB_USERNAME=selarasa_dev' >> .env
           echo 'DB_PASSWORD=selarasa04!' >> .env
@@ -49,7 +48,7 @@ jobs:
           # 3. Jalankan Infrastruktur Dasar
           docker compose up -d db redis
           
-          # [DIAGNOSTIK PENTING] Pastikan Database berhasil hidup dan tidak Exit Code 3
+          # [DIAGNOSTIK] Pastikan Database hidup
           echo "Menunggu inisiasi Database..."
           sleep 5
           if ! docker compose ps db | grep -q 'Up'; then
@@ -69,7 +68,7 @@ jobs:
           echo "Menunggu kontainer backend stabil..."
           sleep 10
           
-          # Setup Database
+          # Setup Database Laravel
           docker compose exec -T backend_test php artisan key:generate --env=testing
           docker compose exec -T backend_test php artisan migrate --force --env=testing
           docker compose exec -T backend_test php artisan db:seed --force --env=testing
