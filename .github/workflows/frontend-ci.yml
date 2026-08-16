@@ -19,50 +19,62 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # ==========================================
+# ==========================================
       # 1. SETUP BACKEND (VIA DOCKER COMPOSE)
       # ==========================================
       - name: Prepare & Start Backend Infrastructure
         run: |
-          # 1. DUNIA ROOT: Sinkronkan murni dengan kredensial di .env.testing asli Anda
-          echo "PROJECT_NAME=selarasa_ci" >> .env
-          echo "DB_NAME=selarasa_test_db" >> .env
-          echo "DB_USER=selarasa_dev" >> .env
-          echo "DB_PASSWORD=selarasa04!" >> .env
-          echo "REDIS_PASSWORD=selarasa03!" >> .env
+          # 1. DUNIA ROOT: Gunakan SINGLE QUOTE ('') agar tanda seru (!) tidak merusak bash!
+          # Kita masukkan semua variasi nama variabel agar tidak ada yang terlewat oleh docker-compose
+          echo 'PROJECT_NAME=selarasa_ci' >> .env
+          echo 'DB_NAME=selarasa_test_db' >> .env
+          echo 'DB_DATABASE=selarasa_test_db' >> .env
+          echo 'DB_USER=selarasa_dev' >> .env
+          echo 'DB_USERNAME=selarasa_dev' >> .env
+          echo 'DB_PASSWORD=selarasa04!' >> .env
+          echo 'REDIS_PASSWORD=selarasa03!' >> .env
           
           # 2. DUNIA BACKEND: Gunakan file .env.testing bawaan, HANYA ubah URL untuk CI/Playwright
-          # Playwright berjalan di 127.0.0.1, jadi kita harus mengganti 'selarasa' menjadi '127.0.0.1'
           sed -i 's|APP_URL=http://selarasa:8001|APP_URL=http://127.0.0.1:8001|g' ./backend/.env.testing
           sed -i 's|FRONTEND_POS_URL=http://selarasa:5173|FRONTEND_POS_URL=http://127.0.0.1:5173|g' ./backend/.env.testing
           sed -i 's|FRONTEND_BCK_URL=http://selarasa:5174|FRONTEND_BCK_URL=http://127.0.0.1:5174|g' ./backend/.env.testing
           
-          # Pastikan host database & redis sesuai dengan nama service di docker-compose Anda
+          # Pastikan host diarahkan ke nama service kontainer
           sed -i 's/DB_HOST=selarasa_db/DB_HOST=db/g' ./backend/.env.testing
           sed -i 's/REDIS_HOST=selarasa_redis/REDIS_HOST=redis/g' ./backend/.env.testing
           
-          # Paksa FrankenPHP mendengarkan lalu lintas dari Playwright
           echo "OCTANE_HOST=0.0.0.0" >> ./backend/.env.testing
           echo "SERVER_NAME=:8000" >> ./backend/.env.testing
 
-          # 3. Jalankan Infrastruktur Docker
+          # 3. Jalankan Infrastruktur Dasar
           docker compose up -d db redis
+          
+          # [DIAGNOSTIK PENTING] Pastikan Database berhasil hidup dan tidak Exit Code 3
+          echo "Menunggu inisiasi Database..."
+          sleep 5
+          if ! docker compose ps db | grep -q 'Up'; then
+            echo "🚨 KONTAINER DB MATI! Berikut log asli dari PostgreSQL:"
+            docker compose logs db
+            exit 1
+          fi
+          
+          # 4. Instalasi dan Setup Backend
           docker compose run --rm --entrypoint="" backend_test composer update -q --no-ansi --no-interaction --no-progress --prefer-dist
           
-          # Bersihkan cache Laravel lama
+          # Bersihkan cache Laravel
           docker compose run --rm --entrypoint="" backend_test php artisan optimize:clear --env=testing
           
           docker compose up -d backend_test
           
-          echo "Menunggu kontainer stabil..."
+          echo "Menunggu kontainer backend stabil..."
           sleep 10
           
-          # 4. Setup Database
+          # Setup Database
           docker compose exec -T backend_test php artisan key:generate --env=testing
           docker compose exec -T backend_test php artisan migrate --force --env=testing
           docker compose exec -T backend_test php artisan db:seed --force --env=testing
 
-          # Restart FrankenPHP agar membaca memori konfigurasi yang baru
+          # Restart FrankenPHP
           echo "Merestart FrankenPHP..."
           docker compose restart backend_test
           sleep 5
@@ -71,7 +83,10 @@ jobs:
           echo "Menguji jaringan..."
           if ! curl -s http://127.0.0.1:8001 > /dev/null; then
             echo "🚨 PORT 8001 TIDAK MERESPONS!"
+            docker compose logs backend_test
             exit 1
+          else
+            echo "✅ Backend menyala sempurna!"
           fi
 
       # ==========================================
