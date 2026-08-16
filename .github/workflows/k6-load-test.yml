@@ -103,9 +103,9 @@ jobs:
             echo "🚀 MENGUJI PERFORMA: $script"
             echo "=========================================================="
             
-            # Eksekusi K6 menggunakan Docker Volume Mount (-v)
             docker run --rm -i \
               --network host \
+              --add-host selarasa:127.0.0.1 \
               -v $PWD:/scripts \
               -w /scripts \
               grafana/k6 run "$script"
