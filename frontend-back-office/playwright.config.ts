@@ -25,7 +25,7 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: isCI ? 'npm run dev -- --host 127.0.0.1' : 'npm run dev',
+    command: isCI ? 'npm run dev -- --host 127.0.0.1 --port 5174' : 'npm run dev',
     url: isCI ? 'http://127.0.0.1:5174' : 'http://selarasa:5174',
     reuseExistingServer: !isCI,
     timeout: 120 * 1000,
