@@ -45,8 +45,11 @@ class UserService
     }
 
     /**
-     * Retrieve a user by their UUID.
-     * Utilizes Redis caching to significantly reduce database load.
+     * Retrieve a user by their UUID with enterprise-grade caching.
+     * 
+     * SECURITY: Sensitive fields are stripped before caching.
+     * PERFORMANCE: Redis caching to reduce database load.
+     * RELIABILITY: Array caching prevents serialization issues.
      *
      * @param string $id
      * @return User
@@ -54,18 +57,33 @@ class UserService
      */
     public function getUserById(string $id): User
     {
-        return Cache::remember("users:profile:{$id}", self::CACHE_TTL, function () use ($id) {
+        $cacheKey = "users:profile:{$id}";
+
+        /** @var array<string, mixed> $cachedUserData */
+        $cachedUserData = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($id): array {
             $user = $this->userRepository->findById($id);
 
-            // Throw exception inside the closure to prevent caching a null value
+            // Throw exception inside closure to prevent caching null values
             if (!$user) {
                 throw new ModelNotFoundException("User with ID {$id} not found.");
             }
 
-            return $user;
+            // SECURITY: Strip sensitive fields before caching
+            // Return plain array to prevent Eloquent serialization issues
+            return $user->makeHidden([
+                'password',
+                'remember_token',
+            ])->toArray();
         });
-    }
 
+        // Rehydrate Eloquent Model from cached array data
+        $rehydratedUser = new User();
+        $rehydratedUser->setRawAttributes($cachedUserData, true);
+        $rehydratedUser->exists = true;
+        $rehydratedUser->wasRecentlyCreated = false;
+
+        return $rehydratedUser;
+    }
     /**
      * Create a new user with proper password hashing.
      *
@@ -102,8 +120,7 @@ class UserService
         $user = $this->getUserById($id);
         $currentUser = auth()->user();
 
-        // Security Guard: Prevent privilege escalation
-        // Uses Laravel's built-in AuthorizationException (Translates to HTTP 403 Forbidden)
+        // Security Guard
         if (isset($data['role']) && $data['role'] === 'admin' && $currentUser?->role !== 'admin') {
             throw new AuthorizationException('Unauthorized action: Only administrators can assign the admin role.');
         }
@@ -118,7 +135,8 @@ class UserService
         try {
             $updatedUser = DB::transaction(function () use ($user, $data) {
                 $this->userRepository->update($user, $data);
-                return $user->refresh();
+                
+                return $this->userRepository->findById($user->id);
             });
             
             return $updatedUser;

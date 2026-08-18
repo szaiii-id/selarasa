@@ -7,18 +7,11 @@ use App\Models\User;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class AuthService
 {
-    /**
-     * Define the cache Time-To-Live (TTL) in seconds.
-     * 3600 seconds = 1 hour.
-     */
-    protected const CACHE_TTL = 3600;
-
     /**
      * Inject the repository via Constructor Property Promotion.
      */
@@ -30,6 +23,13 @@ class AuthService
      * Strictly validate user credentials, account status, and role
      * WITHOUT creating a session/cookie.
      *
+     * NOTE: Caching is intentionally NOT used here. The `users` table's
+     * unique index on `username` already makes this lookup fast, and
+     * caching a full Eloquent Model (including the password hash) proved
+     * unsafe under concurrent load — serialized objects could be read
+     * back in a corrupted/incomplete state, causing intermittent 500s.
+     * See: incident during k6 load testing (Aug 2026).
+     *
      * @param array{username: string, password: string} $credentials
      * @param array<int, string> $allowedRoles
      * @return User
@@ -37,11 +37,7 @@ class AuthService
      */
     public function validateCredentials(array $credentials, array $allowedRoles = []): User
     {
-        $username = $credentials['username'];
-
-        $user = Cache::remember("users:login:{$username}", self::CACHE_TTL, function () use ($username) {
-            return $this->userRepository->findByUsername($username);
-        });
+        $user = $this->userRepository->findByUsername($credentials['username']);
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             throw new AuthenticationException('Invalid username or password.');

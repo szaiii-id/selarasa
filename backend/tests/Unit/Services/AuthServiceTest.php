@@ -7,7 +7,6 @@ use Illuminate\Auth\AuthenticationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 
 uses(Tests\TestCase::class);
@@ -35,14 +34,7 @@ it('returns User instance on successful credentials validation (Happy Path)', fu
     ]);
     $user->id = 1;
 
-    // Mock Cache Facade untuk mengeksekusi closure di dalamnya
-    Cache::shouldReceive('remember')
-        ->once()
-        ->with('users:login:manager_selarasa', 3600, Mockery::type('Closure'))
-        ->andReturnUsing(function ($key, $ttl, $closure) {
-            return $closure(); // Eksekusi Closure untuk memanggil UserRepository
-        });
-
+    // Langsung mock repository karena cache sudah dihapus
     $this->userRepository
         ->shouldReceive('findByUsername')
         ->once()
@@ -59,18 +51,15 @@ it('returns User instance on successful credentials validation (Happy Path)', fu
 });
 
 it('creates an authenticated session and updates last_login_at for the user (Happy Path)', function () {
-    // Kita harus mem-mock model User agar fungsi ->update() tidak menembak database asli
     $user = Mockery::mock(User::class)->makePartial();
     $user->username = 'manager_selarasa';
     $user->id = 1;
 
-    // Ekspektasi: Fungsi update dipanggil dengan array yang memiliki key 'last_login_at'
     $user->shouldReceive('update')
         ->once()
         ->with(Mockery::on(fn($data) => array_key_exists('last_login_at', $data)))
         ->andReturn(true);
 
-    // Mock Auth facade for session login
     Auth::shouldReceive('login')
         ->once()
         ->with($user);
@@ -85,11 +74,6 @@ it('throws AuthenticationException when password does not match (Negative Path)'
         'role'      => 'admin',
         'is_active' => true,
     ]);
-
-    // Mock Cache
-    Cache::shouldReceive('remember')
-        ->once()
-        ->andReturnUsing(fn($k, $t, $c) => $c());
 
     $this->userRepository
         ->shouldReceive('findByUsername')
@@ -109,10 +93,6 @@ it('throws AuthenticationException when password does not match (Negative Path)'
 // ==========================================
 
 it('throws AuthenticationException when user is not found in repository (Partition: Not Found)', function () {
-    Cache::shouldReceive('remember')
-        ->once()
-        ->andReturnUsing(fn($k, $t, $c) => $c());
-
     $this->userRepository
         ->shouldReceive('findByUsername')
         ->once()
@@ -132,10 +112,6 @@ it('throws AccessDeniedHttpException when user is inactive (Partition: Inactive 
         'role'      => 'admin',
         'is_active' => false,
     ]);
-
-    Cache::shouldReceive('remember')
-        ->once()
-        ->andReturnUsing(fn($k, $t, $c) => $c());
 
     $this->userRepository
         ->shouldReceive('findByUsername')
@@ -157,10 +133,6 @@ it('throws AccessDeniedHttpException when user role is unauthorized (Partition: 
         'is_active' => true,
     ]);
 
-    Cache::shouldReceive('remember')
-        ->once()
-        ->andReturnUsing(fn($k, $t, $c) => $c());
-
     $this->userRepository
         ->shouldReceive('findByUsername')
         ->once()
@@ -181,10 +153,6 @@ it('throws AccessDeniedHttpException when user role is unauthorized (Partition: 
 
 it('handles boundary string lengths gracefully by returning null search from repository (BVA)', function () {
     $massiveString = str_repeat('a', 255);
-
-    Cache::shouldReceive('remember')
-        ->once()
-        ->andReturnUsing(fn($k, $t, $c) => $c());
 
     $this->userRepository
         ->shouldReceive('findByUsername')
@@ -211,12 +179,10 @@ it('safely handles logout when request has no session store attached (Edge Case)
         ->once()
         ->with('web')
         ->andReturnSelf(); 
-    
+
     Auth::shouldReceive('logout')->once();
 
-    // Act
     $this->authService->logout($request);
 
-    // Assert: Handled safely without throwing 500 Session store not set error
     expect(true)->toBeTrue();
 });
