@@ -34,6 +34,7 @@ it('returns User instance on successful credentials validation (Happy Path)', fu
     ]);
     $user->id = 1;
 
+    // Langsung mock repository karena cache sudah dihapus
     $this->userRepository
         ->shouldReceive('findByUsername')
         ->once()
@@ -49,11 +50,16 @@ it('returns User instance on successful credentials validation (Happy Path)', fu
     expect($result->username)->toBe('manager_selarasa');
 });
 
-it('creates an authenticated session for the user (Happy Path)', function () {
-    $user = new User(['username' => 'manager_selarasa']);
+it('creates an authenticated session and updates last_login_at for the user (Happy Path)', function () {
+    $user = Mockery::mock(User::class)->makePartial();
+    $user->username = 'manager_selarasa';
     $user->id = 1;
 
-    // Mock Auth facade for session login
+    $user->shouldReceive('update')
+        ->once()
+        ->with(Mockery::on(fn($data) => array_key_exists('last_login_at', $data)))
+        ->andReturn(true);
+
     Auth::shouldReceive('login')
         ->once()
         ->with($user);
@@ -173,12 +179,10 @@ it('safely handles logout when request has no session store attached (Edge Case)
         ->once()
         ->with('web')
         ->andReturnSelf(); 
-    
+
     Auth::shouldReceive('logout')->once();
 
-    // Act
     $this->authService->logout($request);
 
-    // Assert: Handled safely without throwing 500 Session store not set error
     expect(true)->toBeTrue();
 });

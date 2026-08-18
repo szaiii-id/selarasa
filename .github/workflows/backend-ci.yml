@@ -1,0 +1,48 @@
+name: Backend CI (Testing)
+
+on:
+  push:
+    branches: [ "develop", "main" ]
+  pull_request:
+    branches: [ "develop", "main" ]
+
+jobs:
+  test-backend:
+    name: Run Backend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, bcmath, sqlite3, pdo_sqlite, curl, dom, fileinfo
+          coverage: none
+
+      - name: Install Composer Dependencies
+        working-directory: ./backend
+        run: composer update -q --no-ansi --no-interaction --no-progress --prefer-dist
+
+      - name: Prepare Environment
+        working-directory: ./backend
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          touch database/database.sqlite
+
+      - name: Run Migrations
+        working-directory: ./backend
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
+        run: php artisan migrate --force
+
+      - name: Execute Tests via Pest
+        working-directory: ./backend
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: database/database.sqlite
+        run: php artisan test

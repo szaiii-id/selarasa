@@ -1,0 +1,131 @@
+name: Frontend CI (Vue & Tests)
+
+on:
+  push:
+    branches: [ "develop", "main" ]
+  pull_request:
+    branches: [ "develop", "main" ]
+
+jobs:
+  build-and-test:
+    name: CI - ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        app: [frontend-back-office, frontend-pos]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+# ==========================================
+      # 1. SETUP BACKEND (VIA DOCKER COMPOSE)
+      # ==========================================
+      - name: Prepare & Start Backend Infrastructure
+        run: |
+          # 1. DUNIA ROOT: Gunakan nama dummy agar tidak menabrak file init-db.sql Anda!
+          echo 'PROJECT_NAME=selarasa_ci' >> .env
+          echo 'DB_NAME=selarasa_dummy' >> .env
+          echo 'DB_DATABASE=selarasa_dummy' >> .env
+          echo 'DB_USER=selarasa_dev' >> .env
+          echo 'DB_USERNAME=selarasa_dev' >> .env
+          echo 'DB_PASSWORD=selarasa04!' >> .env
+          echo 'REDIS_PASSWORD=selarasa03!' >> .env
+          
+          # 2. DUNIA BACKEND: Gunakan file .env.testing bawaan, HANYA ubah URL untuk CI/Playwright
+          sed -i 's|APP_URL=http://selarasa:8001|APP_URL=http://127.0.0.1:8001|g' ./backend/.env.testing
+          sed -i 's|FRONTEND_POS_URL=http://selarasa:5173|FRONTEND_POS_URL=http://127.0.0.1:5173|g' ./backend/.env.testing
+          sed -i 's|FRONTEND_BCK_URL=http://selarasa:5174|FRONTEND_BCK_URL=http://127.0.0.1:5174|g' ./backend/.env.testing
+          
+          # Pastikan host diarahkan ke nama service kontainer
+          sed -i 's/DB_HOST=selarasa_db/DB_HOST=db/g' ./backend/.env.testing
+          sed -i 's/REDIS_HOST=selarasa_redis/REDIS_HOST=redis/g' ./backend/.env.testing
+          # Arahkan cache store ke redis agar Rate Limiting persisten antar request
+          sed -i 's/CACHE_STORE=array/CACHE_STORE=redis/g' ./backend/.env.testing
+          
+          echo "OCTANE_HOST=0.0.0.0" >> ./backend/.env.testing
+          echo "SERVER_NAME=:8000" >> ./backend/.env.testing
+
+          # 3. Jalankan Infrastruktur Dasar
+          docker compose up -d db redis
+          
+          # [DIAGNOSTIK] Pastikan Database hidup
+          echo "Menunggu inisiasi Database..."
+          sleep 5
+          if ! docker compose ps db | grep -q 'Up'; then
+            echo "🚨 KONTAINER DB MATI! Berikut log asli dari PostgreSQL:"
+            docker compose logs db
+            exit 1
+          fi
+          
+          # 4. Instalasi dan Setup Backend
+          docker compose run --rm --entrypoint="" backend_test composer update -q --no-ansi --no-interaction --no-progress --prefer-dist
+          
+          # Bersihkan cache Laravel
+          docker compose run --rm --entrypoint="" backend_test php artisan optimize:clear --env=testing
+          
+          docker compose up -d backend_test
+          
+          echo "Menunggu kontainer backend stabil..."
+          sleep 10
+          
+          # Setup Database Laravel
+          docker compose exec -T backend_test php artisan key:generate --env=testing
+          docker compose exec -T backend_test php artisan migrate --force --env=testing
+          docker compose exec -T backend_test php artisan db:seed --force --env=testing
+
+          # Restart FrankenPHP
+          echo "Merestart FrankenPHP..."
+          docker compose restart backend_test
+          sleep 5
+          
+          # 5. Tes Jaringan
+          echo "Menguji jaringan..."
+          if ! curl -s http://127.0.0.1:8001 > /dev/null; then
+            echo "🚨 PORT 8001 TIDAK MERESPONS!"
+            docker compose logs backend_test
+            exit 1
+          else
+            echo "✅ Backend menyala sempurna!"
+          fi
+
+      # ==========================================
+      # 2. SETUP FRONTEND (VUE)
+      # ==========================================
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # [PERBAIKAN KRITIS 2] Paksa Vite menggunakan Port 8001
+      - name: Set Frontend Env Vars (Force Vite)
+        working-directory: ./${{ matrix.app }}
+        run: |
+          echo "VITE_API_BASE_URL=http://127.0.0.1:8001/api/v1" > .env.local
+          echo "VITE_APP_NAME=SelaRasa CI Testing" >> .env.local
+
+      - name: Install Dependencies
+        working-directory: ./${{ matrix.app }}
+        run: npm install
+
+      - name: Run Unit Tests (Vitest)
+        working-directory: ./${{ matrix.app }}
+        run: npx vitest run
+
+      - name: Build Application
+        working-directory: ./${{ matrix.app }}
+        run: npm run build
+
+      # ==========================================
+      # 3. END-TO-END TESTING (PLAYWRIGHT)
+      # ==========================================
+      - name: Install Playwright Browsers
+        working-directory: ./${{ matrix.app }}
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E Tests (Playwright)
+        working-directory: ./${{ matrix.app }}
+        env:
+          CI: true
+        run: npx playwright test

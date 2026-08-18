@@ -23,6 +23,13 @@ class AuthService
      * Strictly validate user credentials, account status, and role
      * WITHOUT creating a session/cookie.
      *
+     * NOTE: Caching is intentionally NOT used here. The `users` table's
+     * unique index on `username` already makes this lookup fast, and
+     * caching a full Eloquent Model (including the password hash) proved
+     * unsafe under concurrent load — serialized objects could be read
+     * back in a corrupted/incomplete state, causing intermittent 500s.
+     * See: incident during k6 load testing (Aug 2026).
+     *
      * @param array{username: string, password: string} $credentials
      * @param array<int, string> $allowedRoles
      * @return User
@@ -32,17 +39,14 @@ class AuthService
     {
         $user = $this->userRepository->findByUsername($credentials['username']);
 
-        // 1. Cek keberadaan user & kecocokan password (HTTP 401)
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             throw new AuthenticationException('Invalid username or password.');
         }
 
-        // 2. Cek status aktif akun (HTTP 403)
         if (!$user->is_active) {
             throw new AccessDeniedHttpException('Your account has been deactivated. Please contact the manager.');
         }
 
-        // 3. Cek apakah role diizinkan (jika daftar $allowedRoles diberikan oleh Controller) (HTTP 403)
         if (!empty($allowedRoles) && !in_array(strtolower($user->role), array_map('strtolower', $allowedRoles), true)) {
             throw new AccessDeniedHttpException('Invalid credentials or insufficient permissions to access this area.');
         }
@@ -59,6 +63,10 @@ class AuthService
     public function createSession(User $user): void
     {
         Auth::login($user);
+
+        $user->update([
+            'last_login_at' => now()
+        ]);
     }
 
     /**

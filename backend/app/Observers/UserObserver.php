@@ -8,19 +8,14 @@ use Illuminate\Support\Facades\Cache;
 class UserObserver
 {
     /**
-     * Handle the User "created" event.
-     */
-    public function created(User $user): void
-    {
-        //
-    }
-
-    /**
      * Handle the User "updated" event.
      */
     public function updated(User $user): void
     {
-        Cache::forget("user_login_{$user->username}");
+        if ($user->wasChanged('username')) {
+            Cache::forget("users:login:{$user->getOriginal('username')}");
+        }
+        $this->clearCache($user);
     }
 
     /**
@@ -28,7 +23,7 @@ class UserObserver
      */
     public function deleted(User $user): void
     {
-        Cache::forget("user_login_{$user->username}");
+        $this->clearCache($user);
     }
 
     /**
@@ -36,7 +31,7 @@ class UserObserver
      */
     public function restored(User $user): void
     {
-        //
+        $this->clearCache($user);
     }
 
     /**
@@ -44,6 +39,19 @@ class UserObserver
      */
     public function forceDeleted(User $user): void
     {
-        //
+        $this->clearCache($user);
+    }
+
+    /**
+     * Centralize cache clearing logic for the User model.
+     * 
+     * @param User $user
+     * @return void
+     */
+    protected function clearCache(User $user): void
+    {
+        // Use standardized cache keys
+        Cache::forget("users:login:{$user->username}");
+        Cache::forget("users:profile:{$user->id}");
     }
 }

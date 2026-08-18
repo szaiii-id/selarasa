@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Auth\LogoutController;
 use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\BackOffice\Auth\LoginController as BackOfficeLoginController;
 use App\Http\Controllers\Api\V1\Pos\Auth\LoginController as PosLoginController;
+use App\Http\Controllers\Api\V1\BackOffice\User\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -42,6 +43,37 @@ Route::prefix('v1')->group(function () {
 
     });
 
-    
+    /*
+    |--------------------------------------------------------------------------
+    | 3. PROTECTED BACK-OFFICE ROUTES
+    |--------------------------------------------------------------------------
+    | Main Back-Office Gateway:
+    | Only Admin, Manager, and Inventory roles can enter this area.
+    | Cashiers will be automatically denied access (403 Forbidden).
+    */
+    Route::middleware(['auth:sanctum', 'active', 'throttle:api', 'role:admin,manager,inventory'])
+        ->prefix('backoffice')
+        ->group(function () {
+
+        /*
+        |----------------------------------------------------------------------
+        | USER MANAGEMENT MODULE (HR)
+        |----------------------------------------------------------------------
+        | Restricted Area: We lock this down even further.
+        | Out of the 3 roles present in the Back-Office, only Admin and Manager 
+        | are permitted in this module. Inventory will be denied.
+        */
+        Route::middleware(['role:admin,manager'])->group(function () {
+            
+            Route::prefix('users')->name('api.v1.backoffice.users.')->group(function () {
+                Route::patch('/{user}/deactivate', [UserController::class, 'deactivate'])
+                    ->name('deactivate');
+            });
+
+            Route::apiResource('users', UserController::class)->names('api.v1.backoffice.users');
+
+        });
+
+    });
 
 });
