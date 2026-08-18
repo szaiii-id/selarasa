@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\Auth\LogoutController;
 use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\BackOffice\Auth\LoginController as BackOfficeLoginController;
 use App\Http\Controllers\Api\V1\Pos\Auth\LoginController as PosLoginController;
+use App\Http\Controllers\Api\V1\BackOffice\User\UserController; // Tambahkan impor ini
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -39,6 +40,35 @@ Route::prefix('v1')->group(function () {
         Route::prefix('auth')->group(function () {
             Route::get('/me', MeController::class)->name('test.v1.auth.me');
             Route::post('/logout', LogoutController::class)->name('test.v1.auth.logout');
+        });
+
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | 3. PROTECTED BACK-OFFICE ROUTES (Load Testing)
+    |--------------------------------------------------------------------------
+    | Main Back-Office Gateway tanpa throttle.
+    | Role guard tetap dipertahankan untuk memastikan otorisasi berjalan normal.
+    */
+    Route::middleware(['auth:sanctum', 'active', 'role:admin,manager,inventory'])
+        ->prefix('backoffice')
+        ->group(function () {
+
+        /*
+        |----------------------------------------------------------------------
+        | USER MANAGEMENT MODULE (HR)
+        |----------------------------------------------------------------------
+        */
+        Route::middleware(['role:admin,manager'])->group(function () {
+            
+            Route::prefix('users')->name('test.v1.backoffice.users.')->group(function () {
+                Route::patch('/{user}/deactivate', [UserController::class, 'deactivate'])
+                    ->name('deactivate');
+            });
+
+            Route::apiResource('users', UserController::class)->names('test.v1.backoffice.users');
+
         });
 
     });

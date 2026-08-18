@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -31,18 +32,14 @@ return Application::configure(basePath: dirname(__DIR__))
          */
         $middleware->statefulApi();
 
-        // // ============================================
-        // // TAMBAHKAN INI - CSRF BYPASS UNTUK ROUTE TEST
-        // // ============================================
-        // $middleware->validateCsrfTokens(
-        //     except: ['api-test/*']
-        // );
+
 
         /**
          * Register application middleware aliases for route assignment.
          */
         $middleware->alias([
             'active' => EnsureUserIsActive::class,
+            'role'   => CheckRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

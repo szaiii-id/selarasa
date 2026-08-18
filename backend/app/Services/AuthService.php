@@ -7,11 +7,18 @@ use App\Models\User;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class AuthService
 {
+    /**
+     * Define the cache Time-To-Live (TTL) in seconds.
+     * 3600 seconds = 1 hour.
+     */
+    protected const CACHE_TTL = 3600;
+
     /**
      * Inject the repository via Constructor Property Promotion.
      */
@@ -30,19 +37,20 @@ class AuthService
      */
     public function validateCredentials(array $credentials, array $allowedRoles = []): User
     {
-        $user = $this->userRepository->findByUsername($credentials['username']);
+        $username = $credentials['username'];
 
-        // 1. Cek keberadaan user & kecocokan password (HTTP 401)
+        $user = Cache::remember("users:login:{$username}", self::CACHE_TTL, function () use ($username) {
+            return $this->userRepository->findByUsername($username);
+        });
+
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
             throw new AuthenticationException('Invalid username or password.');
         }
 
-        // 2. Cek status aktif akun (HTTP 403)
         if (!$user->is_active) {
             throw new AccessDeniedHttpException('Your account has been deactivated. Please contact the manager.');
         }
 
-        // 3. Cek apakah role diizinkan (jika daftar $allowedRoles diberikan oleh Controller) (HTTP 403)
         if (!empty($allowedRoles) && !in_array(strtolower($user->role), array_map('strtolower', $allowedRoles), true)) {
             throw new AccessDeniedHttpException('Invalid credentials or insufficient permissions to access this area.');
         }
@@ -59,6 +67,10 @@ class AuthService
     public function createSession(User $user): void
     {
         Auth::login($user);
+
+        $user->update([
+            'last_login_at' => now()
+        ]);
     }
 
     /**
