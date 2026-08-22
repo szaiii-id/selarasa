@@ -149,7 +149,7 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
     });
 
     test('UI memproteksi akun Admin agar tidak bisa diedit/dihapus oleh Manager (Badge Locked)', async ({ page }) => {
-      const adminRow = page.locator('table tr').filter({ hasText: 'admin' });
+      const adminRow = page.locator('table tr').filter({ hasText: 'Super Admin SelaRasa' });
       await expect(adminRow).toBeVisible();
 
       const viewBtn = adminRow.locator('button:has-text("View")');
@@ -164,7 +164,7 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
     });
 
     test('UI melindungi akun milik sendiri (Self-Protection) dari tombol Deactivate/Delete', async ({ page }) => {
-      const selfRow = page.locator('table tr').filter({ hasText: 'manager' });
+      const selfRow = page.locator('table tr').filter({ hasText: 'Manager SelaRasa' });
       await expect(selfRow).toBeVisible();
 
       await expect(selfRow.locator('button:has-text("Edit")')).toBeVisible();
