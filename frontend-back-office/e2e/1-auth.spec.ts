@@ -1,32 +1,51 @@
 import { test, expect } from '@playwright/test';
+import { execSync } from 'node:child_process';
 
 test.describe('Alur Autentikasi Back Office (E2E) - Real UI & User Journey', () => {
 
   // =========================================================================
+  // HOOK CLEANUP PROFESIONAL: Hapus Cache Docker SETELAH SETIAP TES
+  // =========================================================================
+  test.afterEach(async () => {
+    try {
+      execSync('docker exec selarasa_backend php artisan cache:clear', { stdio: 'ignore' });
+    } catch (error) {
+      // Abaikan error minor jika container sedang sibuk
+    }
+  });
+
+  // =========================================================================
   // 1. HAPPY PATH & STATE TRANSITION (Level Alur Pengguna)
   // =========================================================================
-  test('Pengguna berhasil login, masuk dashboard, dan melakukan logout', async ({ page }) => {
+  test('Pengguna berhasil login, masuk dashboard, dan melakukan logout dengan konfirmasi modal', async ({ page }) => {
     await page.goto('/login');
 
-    // Validasi visual & struktur dokumen (a11y check untuk heading utama)
+    // Validasi visual & struktur dokumen
     await expect(page.locator('h1')).toContainText('Back Office');
 
-    // Menggunakan kredensial dari UserSeeder (Admin)
+    // Login sebagai Admin
     await page.fill('input[placeholder="Enter your username"]', 'admin');
     await page.fill('input[placeholder="••••••••"]', 'selarasa01');
-    
-    // Klik tombol submit
-    const submitBtn = page.locator('button[type="submit"]');
-    await submitBtn.click();
+    await page.click('button[type="submit"]');
 
-    // Validasi navigasi dan kestabilan antarmuka Dashboard (Dashboard.vue)
-    // Gunakan regex untuk mencocokkan URL agar lebih fleksibel
+    // Validasi masuk ke Dashboard
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.locator('h1')).toContainText('Dashboard');
-    await expect(page.locator('text=Welcome to SelaRasa Back Office!')).toBeVisible();
+    await expect(page.locator('text=di SelaRasa Back Office')).toBeVisible();
 
-    // Menguji interaksi pemutusan sesi (logout) kembali ke awal
-    await page.click('button:has-text("Sign Out")');
+    // 1. Klik tombol Sign Out / Logout di Sidebar/Layout
+    const signOutBtn = page.locator('button:has-text("Sign Out"), button:has-text("Logout"), a:has-text("Logout")').first();
+    await signOutBtn.click();
+
+    // 2. TANGKAP MODAL KONFIRMASI: Pastikan LogoutModal / ConfirmModal muncul
+    // Menunggu teks "Ready to Leave?" muncul di layar
+    await expect(page.locator('text=Ready to Leave?')).toBeVisible();
+
+    // 3. Klik tombol konfirmasi di dalam modal ("Yes, Logout")
+    const confirmLogoutBtn = page.locator('button:has-text("Yes, Logout")');
+    await confirmLogoutBtn.click();
+
+    // 4. Pastikan sistem berhasil menendang pengguna kembali ke halaman /login
     await expect(page).toHaveURL(/\/login/);
   });
 
