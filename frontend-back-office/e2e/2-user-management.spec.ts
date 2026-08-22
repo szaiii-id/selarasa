@@ -21,12 +21,13 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
   test.describe('A. ADMIN ROLE JOURNEY (Full Access)', () => {
     
     test.beforeEach(async ({ page }) => {
-      await page.goto('/login', { waitUntil: 'networkidle' });
+      await page.context().clearCookies();
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
       await page.waitForSelector('input[placeholder="Enter your username"]', { timeout: 10000 });
       
       await page.fill('input[placeholder="Enter your username"]', 'admin');
       await page.fill('input[placeholder="••••••••"]', 'selarasa01');
-      await page.waitForTimeout(1000);
       await page.click('button[type="submit"]');
       
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
@@ -133,12 +134,13 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
   test.describe('B. MANAGER ROLE JOURNEY (RBAC & UI Protection)', () => {
     
     test.beforeEach(async ({ page }) => {
-      await page.goto('/login', { waitUntil: 'networkidle' });
+      await page.context().clearCookies();
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
       await page.waitForSelector('input[placeholder="Enter your username"]', { timeout: 10000 });
       
       await page.fill('input[placeholder="Enter your username"]', 'manager');
       await page.fill('input[placeholder="••••••••"]', 'selarasa01');
-      await page.waitForTimeout(1000);
       await page.click('button[type="submit"]');
       
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
