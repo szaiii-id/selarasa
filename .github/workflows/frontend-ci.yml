@@ -92,22 +92,7 @@ jobs:
           fi
 
 
-            # ==========================================
-      # 1.5 DIAGNOSTIK LOGIN API
-      # ==========================================
-      - name: Diagnostik Login API
-        run: |
-          echo "=== CSRF Handshake ==="
-          curl -s -c cookies.txt -H "Accept: application/json" -H "X-Requested-With: XMLHttpRequest" -H "Origin: http://127.0.0.1:5174" http://127.0.0.1:8001/sanctum/csrf-cookie
-          
-          echo ""
-          echo "=== Cookies ==="
-          cat cookies.txt
-          
-          echo ""
-          echo "=== Login Attempt ==="
-          TOKEN=$(grep XSRF-TOKEN cookies.txt | awk '{print $7}' | sed 's/%3D/=/g')
-          curl -s -b cookies.txt -H "Accept: application/json" -H "X-Requested-With: XMLHttpRequest" -H "Origin: http://127.0.0.1:5174" -H "X-XSRF-TOKEN: $TOKEN" -H "Content-Type: application/json" -d '{"username":"admin","password":"selarasa01"}' http://127.0.0.1:8001/api/v1/backoffice/auth/login
+      
       # ==========================================
       # 2. SETUP FRONTEND (VUE)
       # ==========================================

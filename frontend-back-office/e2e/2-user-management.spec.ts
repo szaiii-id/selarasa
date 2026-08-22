@@ -32,6 +32,7 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
     test.beforeEach(async ({ page }) => {
       // 1. Tunggu network idle agar cold-start backend/Docker tidak membuat timeout
       await page.goto('/login', { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => document.cookie.includes('XSRF-TOKEN'), { timeout: 10000 });
       await page.fill('input[placeholder="Enter your username"]', 'admin');
       await page.fill('input[placeholder="••••••••"]', 'selarasa01');
       await page.waitForTimeout(1000); // Jeda transisi DOM Vue
@@ -184,6 +185,7 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
     
     test.beforeEach(async ({ page }) => {
       await page.goto('/login', { waitUntil: 'networkidle' });
+      await page.waitForFunction(() => document.cookie.includes('XSRF-TOKEN'), { timeout: 10000 });
       // Login sebagai MANAGER, BUKAN Admin
       await page.fill('input[placeholder="Enter your username"]', 'manager');
       await page.fill('input[placeholder="••••••••"]', 'selarasa01');

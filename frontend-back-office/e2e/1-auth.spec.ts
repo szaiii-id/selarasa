@@ -19,6 +19,7 @@ test.describe('Alur Autentikasi Back Office (E2E) - Real UI & User Journey', () 
   // =========================================================================
   test('Pengguna berhasil login, masuk dashboard, dan melakukan logout dengan konfirmasi modal', async ({ page }) => {
     await page.goto('/login');
+    await page.waitForFunction(() => document.cookie.includes('XSRF-TOKEN'), { timeout: 10000 });
 
     // Validasi visual & struktur dokumen
     await expect(page.locator('h1')).toContainText('Back Office');
