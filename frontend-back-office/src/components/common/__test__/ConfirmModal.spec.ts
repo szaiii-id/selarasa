@@ -34,13 +34,14 @@ describe('ConfirmModal.vue (Common Component Testing)', () => {
 
     expect(wrapper.text()).toContain('Konfirmasi Aksi');
     expect(wrapper.text()).toContain('Apakah Anda yakin?');
-    // Jika confirmText tidak dikirim, fallback-nya adalah 'Confirm'
-    expect(wrapper.findAll('button')[1].text()).toContain('Confirm');
+    // Tambahkan ! di akhir pencarian index array
+    expect(wrapper.findAll('button')[1]!.text()).toContain('Confirm');
   });
 
   it('[UI] Mengganti teks tombol jika prop confirmText diberikan', async () => {
     const wrapper = await mountModal({ confirmText: 'Yes, Delete It' });
-    expect(wrapper.findAll('button')[1].text()).toContain('Yes, Delete It');
+    // Tambahkan ! di akhir pencarian index array
+    expect(wrapper.findAll('button')[1]!.text()).toContain('Yes, Delete It');
   });
 
   // =========================================================================
@@ -48,7 +49,7 @@ describe('ConfirmModal.vue (Common Component Testing)', () => {
   // =========================================================================
   it('[Theme] Menggunakan warna merah (bg-error) secara default atau saat theme = "danger"', async () => {
     const wrapper = await mountModal({ theme: 'danger' });
-    const confirmBtn = wrapper.findAll('button')[1];
+    const confirmBtn = wrapper.findAll('button')[1]!; // <-- Tambahkan !
     
     expect(confirmBtn.classes()).toContain('bg-error');
     expect(confirmBtn.classes()).not.toContain('bg-primary');
@@ -56,14 +57,14 @@ describe('ConfirmModal.vue (Common Component Testing)', () => {
 
   it('[Theme] Menggunakan warna kuning (bg-yellow-500) saat theme = "warning"', async () => {
     const wrapper = await mountModal({ theme: 'warning' });
-    const confirmBtn = wrapper.findAll('button')[1];
+    const confirmBtn = wrapper.findAll('button')[1]!; // <-- Tambahkan !
     
     expect(confirmBtn.classes()).toContain('bg-yellow-500');
   });
 
   it('[Theme] Menggunakan warna primer (bg-primary) saat theme = "primary"', async () => {
     const wrapper = await mountModal({ theme: 'primary' });
-    const confirmBtn = wrapper.findAll('button')[1];
+    const confirmBtn = wrapper.findAll('button')[1]!; // <-- Tambahkan !
     
     expect(confirmBtn.classes()).toContain('bg-primary');
   });
@@ -73,7 +74,7 @@ describe('ConfirmModal.vue (Common Component Testing)', () => {
   // =========================================================================
   it('[Event] Memancarkan event "close" saat tombol Cancel diklik', async () => {
     const wrapper = await mountModal();
-    const cancelBtn = wrapper.findAll('button')[0]; // Tombol pertama
+    const cancelBtn = wrapper.findAll('button')[0]!; // <-- Tambahkan !
     
     await cancelBtn.trigger('click');
     expect(wrapper.emitted('close')).toHaveLength(1);
@@ -81,7 +82,7 @@ describe('ConfirmModal.vue (Common Component Testing)', () => {
 
   it('[Event] Memancarkan event "confirm" saat tombol aksi diklik', async () => {
     const wrapper = await mountModal();
-    const confirmBtn = wrapper.findAll('button')[1]; // Tombol kedua
+    const confirmBtn = wrapper.findAll('button')[1]!; // <-- Tambahkan !
     
     await confirmBtn.trigger('click');
     expect(wrapper.emitted('confirm')).toHaveLength(1);
@@ -93,8 +94,8 @@ describe('ConfirmModal.vue (Common Component Testing)', () => {
   it('[Loading] Menonaktifkan tombol, menampilkan spinner, dan menyembunyikan teks saat isLoading = true', async () => {
     const wrapper = await mountModal({ isLoading: true, confirmText: 'Hapus Data' });
     
-    const cancelBtn = wrapper.findAll('button')[0];
-    const confirmBtn = wrapper.findAll('button')[1];
+    const cancelBtn = wrapper.findAll('button')[0]!; // <-- Tambahkan !
+    const confirmBtn = wrapper.findAll('button')[1]!; // <-- Tambahkan !
 
     // 1. Kedua tombol harus disabled
     expect(cancelBtn.attributes('disabled')).toBeDefined();
