@@ -184,7 +184,6 @@ it('prevents SQL injection attempts (Security)', function () {
 
     $response->assertStatus(Response::HTTP_OK);
     
-    // Pastikan tabel users masih ada
     $this->assertDatabaseHas('users', ['id' => $this->admin->id]);
 });
 
