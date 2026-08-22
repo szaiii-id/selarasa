@@ -68,6 +68,8 @@ Route::prefix('v1')->group(function () {
             Route::prefix('users')->name('api.v1.backoffice.users.')->group(function () {
                 Route::patch('/{user}/deactivate', [UserController::class, 'deactivate'])
                     ->name('deactivate');
+                Route::patch('/{user}/activate', [UserController::class, 'activate'])
+                    ->name('activate');
             });
 
             Route::apiResource('users', UserController::class)->names('api.v1.backoffice.users');
@@ -75,5 +77,6 @@ Route::prefix('v1')->group(function () {
         });
 
     });
+
 
 });
