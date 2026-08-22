@@ -32,7 +32,7 @@ jobs:
           echo 'DB_USERNAME=selarasa_dev' >> .env
           echo 'DB_PASSWORD=selarasa04!' >> .env
           echo 'REDIS_PASSWORD=selarasa03!' >> .env
-          
+
           
           # 2. DUNIA BACKEND: Gunakan file .env.testing bawaan, HANYA ubah URL untuk CI/Playwright
           sed -i 's|APP_URL=http://selarasa:8001|APP_URL=http://127.0.0.1:8001|g' ./backend/.env.testing
@@ -91,6 +91,23 @@ jobs:
             echo "✅ Backend menyala sempurna!"
           fi
 
+
+            # ==========================================
+      # 1.5 DIAGNOSTIK LOGIN API
+      # ==========================================
+      - name: Diagnostik Login API
+        run: |
+          echo "=== CSRF Handshake ==="
+          curl -s -c cookies.txt -H "Accept: application/json" -H "X-Requested-With: XMLHttpRequest" -H "Origin: http://127.0.0.1:5174" http://127.0.0.1:8001/sanctum/csrf-cookie
+          
+          echo ""
+          echo "=== Cookies ==="
+          cat cookies.txt
+          
+          echo ""
+          echo "=== Login Attempt ==="
+          TOKEN=$(grep XSRF-TOKEN cookies.txt | awk '{print $7}' | sed 's/%3D/=/g')
+          curl -s -b cookies.txt -H "Accept: application/json" -H "X-Requested-With: XMLHttpRequest" -H "Origin: http://127.0.0.1:5174" -H "X-XSRF-TOKEN: $TOKEN" -H "Content-Type: application/json" -d '{"username":"admin","password":"selarasa01"}' http://127.0.0.1:8001/api/v1/backoffice/auth/login
       # ==========================================
       # 2. SETUP FRONTEND (VUE)
       # ==========================================
