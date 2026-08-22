@@ -5,7 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-class UserResource extends JsonResource
+class UserDetailResource extends JsonResource
 {
     /**
      * Transform the resource into an array.
@@ -14,17 +14,16 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return [      
+        return [
             'id' => $this->id,
             'name' => $this->name,
             'username' => $this->username,
             'role' => $this->role,
             'is_active' => $this->is_active,
-            'joined_at' => $this->created_at ? $this->created_at->format('Y-m-d') : null,
-            'pin_code'  => $this->when(
-                !in_array('pin_code', $this->resource->getHidden()), 
-                $this->pin_code
-            ),
+            'joined_at' => $this->created_at ? $this->created_at->format('d M Y') : null,
+            'account_age' => $this->created_at ? $this->created_at->diffForHumans() : null, 
+            'last_login_at' => $this->last_login_at ? $this->last_login_at->diffForHumans() : 'Never', 
+            'last_login_ip' => $this->last_login_ip ?? 'Unknown',
         ];
     }
 }

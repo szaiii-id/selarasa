@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\BackOffice\Auth\LoginController as BackOfficeLoginController;
 use App\Http\Controllers\Api\V1\Pos\Auth\LoginController as PosLoginController;
 use App\Http\Controllers\Api\V1\BackOffice\User\UserController; // Tambahkan impor ini
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -65,6 +67,8 @@ Route::prefix('v1')->group(function () {
             Route::prefix('users')->name('test.v1.backoffice.users.')->group(function () {
                 Route::patch('/{user}/deactivate', [UserController::class, 'deactivate'])
                     ->name('deactivate');
+                Route::patch('/{user}/activate', [UserController::class, 'activate'])
+                    ->name('activate');
             });
 
             Route::apiResource('users', UserController::class)->names('test.v1.backoffice.users');

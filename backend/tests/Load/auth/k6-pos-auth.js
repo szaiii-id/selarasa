@@ -1,9 +1,23 @@
 import http from 'k6/http';
-import { check, sleep } from 'k6';
+import { check, sleep, group } from 'k6';
 import { SharedArray } from 'k6/data';
+import { Rate, Trend, Counter } from 'k6/metrics';
 
 // =========================================================================
-// 1. CONFIGURATION & THRESHOLDS (SLA)
+// 1. CUSTOM METRICS
+// =========================================================================
+const loginSuccessRate = new Rate('login_success_rate');
+const logoutSuccessRate = new Rate('logout_success_rate');
+const meSuccessRate = new Rate('me_success_rate');
+const csrfSuccessRate = new Rate('csrf_success_rate');
+const loginDuration = new Trend('login_duration', true);
+const logoutDuration = new Trend('logout_duration', true);
+const meDuration = new Trend('me_duration', true);
+const csrfDuration = new Trend('csrf_duration', true);
+const totalUsersLoggedIn = new Counter('total_users_logged_in');
+
+// =========================================================================
+// 2. CONFIGURATION & THRESHOLDS (SLA)
 // =========================================================================
 export const options = {
     scenarios: {
@@ -12,156 +26,363 @@ export const options = {
             startVUs: 0,
             stages: [
                 { duration: '30s', target: 200 }, // Ramp-up
-                { duration: '2m', target: 200 }, // Stable Load
-                { duration: '30s', target: 0 },  // Ramp-down
+                { duration: '2m', target: 200 },  // Stable Load
+                { duration: '30s', target: 0 },   // Ramp-down
             ],
+            gracefulStop: '30s',
         },
     },
     thresholds: {
+        // CSRF Handshake thresholds
         'http_req_duration{type:csrf_handshake}': ['p(95)<500'],
+        'http_req_failed{type:csrf_handshake}': ['rate<0.01'],
+        'csrf_success_rate': ['rate>0.95'],
+        
+        // POS Login thresholds
         'http_req_duration{type:pos_login}': ['p(95)<800'],
         'http_req_failed{type:pos_login}': ['rate<0.01'],
+        'login_success_rate': ['rate>0.95'],
+        
+        // Me endpoint thresholds
+        'http_req_duration{type:pos_me}': ['p(95)<500'],
+        'http_req_failed{type:pos_me}': ['rate<0.01'],
+        'me_success_rate': ['rate>0.95'],
+        
+        // POS Logout thresholds
+        'http_req_duration{type:pos_logout}': ['p(95)<500'],
         'http_req_failed{type:pos_logout}': ['rate<0.01'],
+        'logout_success_rate': ['rate>0.95'],
     },
 };
 
 // =========================================================================
-// 2. ENVIRONMENT VARIABLES & TEST DATA
+// 3. ENVIRONMENT VARIABLES & TEST DATA
 // =========================================================================
-const BASE_URL = 'http://selarasa:8001';
-
-// Port POS (5173)
-const FRONTEND_URL = 'http://selarasa:5173';
+const BASE_URL = __ENV.BASE_URL || 'http://localhost:8001';
+const FRONTEND_URL = __ENV.FRONTEND_URL || 'http://localhost:5173';
+const USER_COUNT = parseInt(__ENV.USER_COUNT) || 30;
+const PASSWORD = __ENV.TEST_PASSWORD || 'password_testing_123';
 
 // Reuse user_test_1..30 dari K6LoadTestSeeder
 const users = new SharedArray('pos users', function () {
-    return Array.from({ length: 30 }, (_, i) => ({
+    const count = parseInt(__ENV.USER_COUNT) || 30;
+    const password = __ENV.TEST_PASSWORD || 'password_testing_123';
+    
+    return Array.from({ length: count }, (_, i) => ({
         username: `user_test_${i + 1}`,
-        password: 'password_testing_123',
+        password: password,
     }));
 });
 
 // =========================================================================
-// 3. MAIN TEST SCENARIO
+// 4. HELPER FUNCTIONS
 // =========================================================================
-export default function () {
-    const user = users[(__VU - 1) % users.length];
-    const jar = http.cookieJar();
+function getXsrfToken(cookies) {
+    if (!cookies || !cookies['XSRF-TOKEN']) {
+        return '';
+    }
+    
+    try {
+        const xsrfCookie = cookies['XSRF-TOKEN'];
+        if (Array.isArray(xsrfCookie) && xsrfCookie.length > 0) {
+            return decodeURIComponent(xsrfCookie[0].value);
+        } else if (typeof xsrfCookie === 'string') {
+            return decodeURIComponent(xsrfCookie);
+        }
+    } catch (e) {
+        console.warn(`[VU ${__VU}] Failed to decode XSRF token: ${e.message}`);
+    }
+    
+    return '';
+}
 
-    const baseHeaders = {
+function getBaseHeaders() {
+    return {
         'Accept': 'application/json',
         'X-Requested-With': 'XMLHttpRequest',
         'Referer': FRONTEND_URL,
         'Origin': FRONTEND_URL,
+        'User-Agent': 'k6-load-test',
     };
+}
 
-    // ---------------------------------------------------------
-    // FASE 1: SANCTUM CSRF HANDSHAKE (SEBELUM LOGIN)
-    // ---------------------------------------------------------
-    const csrfRes = http.get(`${BASE_URL}/sanctum/csrf-cookie`, {
-        headers: baseHeaders,
-        jar: jar,
-        tags: { type: 'csrf_handshake' },
-    });
-
-    let xsrfToken = '';
-    if (csrfRes.cookies && csrfRes.cookies['XSRF-TOKEN']) {
-        xsrfToken = decodeURIComponent(csrfRes.cookies['XSRF-TOKEN'][0].value);
-    }
-
-    // ---------------------------------------------------------
-    // FASE 2: AUTHENTICATION REQUEST (POS LOGIN)
-    // ---------------------------------------------------------
-    const loginPayload = JSON.stringify({
-        username: user.username,
-        password: user.password,
-    });
-
-    const loginRes = http.post(`${BASE_URL}/api-test/v1/pos/auth/login`, loginPayload, {
-        headers: Object.assign({}, baseHeaders, {
-            'Content-Type': 'application/json',
-            'X-XSRF-TOKEN': xsrfToken,
-        }),
-        jar: jar,
-        tags: { type: 'pos_login' },
-    });
-
-    if (loginRes.status !== 200) {
-        let errorMsg = loginRes.body;
-        const titleMatch = loginRes.body.match(/<title>(.*?)<\/title>/i);
-        if (titleMatch && titleMatch[1]) {
-            errorMsg = `Halaman HTML: ${titleMatch[1]}`;
+function logError(phase, response, user) {
+    let errorMsg = 'Unknown error';
+    let status = 'N/A';
+    let duration = 'N/A';
+    
+    if (response) {
+        status = response.status;
+        
+        if (response.timings) {
+            duration = response.timings.duration;
         }
-        console.error(`[VU ${__VU}] LOGIN Status: ${loginRes.status} | Info: ${errorMsg}`);
-    }
-
-    check(loginRes, {
-        'Login status is 200': (r) => r.status === 200,
-        'Has valid session cookie': (r) => {
-            return r.cookies && Object.keys(r.cookies).some(
-                name => name.toLowerCase().includes('session')
-            );
+        
+        if (response.body) {
+            errorMsg = response.body.substring(0, 200);
+            
+            try {
+                const jsonBody = JSON.parse(response.body);
+                if (jsonBody && jsonBody.message) {
+                    errorMsg = `Message: ${jsonBody.message}`;
+                }
+            } catch (e) {
+                if (typeof response.body === 'string') {
+                    const titleMatch = response.body.match(/<title>(.*?)<\/title>/i);
+                    if (titleMatch && titleMatch[1]) {
+                        errorMsg = `HTML Page: ${titleMatch[1]}`;
+                    }
+                }
+            }
         }
-    });
-
-    // ---------------------------------------------------------
-    // FASE 3: PERBARUI CSRF TOKEN SETELAH LOGIN (BULLETPROOF FIX)
-    // ---------------------------------------------------------
-    // Memaksa ambil token paling fresh dengan menembak ulang endpoint csrf-cookie
-    // setelah sesi baru terbentuk akibat login yang sukses.
-    const refreshCsrfRes = http.get(`${BASE_URL}/sanctum/csrf-cookie`, {
-        headers: baseHeaders,
-        jar: jar,
-        tags: { type: 'csrf_refresh' },
-    });
-
-    if (refreshCsrfRes.cookies && refreshCsrfRes.cookies['XSRF-TOKEN']) {
-        xsrfToken = decodeURIComponent(refreshCsrfRes.cookies['XSRF-TOKEN'][0].value);
     }
     
-    // Header otentikasi baru siap digunakan untuk request selanjutnya
-    const authHeaders = { ...baseHeaders, 'X-XSRF-TOKEN': xsrfToken };
+    console.error(
+        `[VU ${__VU}] ${phase} FAILED | User: ${user.username} | ` +
+        `Status: ${status} | Duration: ${duration}ms | Error: ${errorMsg}`
+    );
+}
 
-    sleep(Math.random() * 1.5 + 1); // Think time
-
-    // ---------------------------------------------------------
-    // FASE 4: GET AUTHENTICATED USER (/me)
-    // ---------------------------------------------------------
-    const meRes = http.get(`${BASE_URL}/api-test/v1/auth/me`, {
-        headers: authHeaders,
-        jar: jar,
-        tags: { type: 'pos_me' },
-    });
-
-    check(meRes, {
-        'Me status is 200': (r) => r.status === 200,
-        'Me returns correct username': (r) =>
-            r.status === 200 && r.body.includes(user.username),
-    });
-
-    sleep(Math.random() * 1.5 + 1); // Think time
-
-    // ---------------------------------------------------------
-    // FASE 5: LOGOUT
-    // ---------------------------------------------------------
-    const logoutRes = http.post(`${BASE_URL}/api-test/v1/auth/logout`, null, {
-        headers: authHeaders, // Menggunakan xsrfToken yang baru di-refresh!
-        jar: jar,
-        tags: { type: 'pos_logout' },
-    });
-
-    if (logoutRes.status !== 200) {
-        let errorMsg = logoutRes.body;
-        const titleMatch = logoutRes.body.match(/<title>(.*?)<\/title>/i);
-        if (titleMatch && titleMatch[1]) {
-            errorMsg = `Halaman HTML: ${titleMatch[1]}`;
-        }
-        console.error(`[VU ${__VU}] LOGOUT Status: ${logoutRes.status} | Info: ${errorMsg}`);
+function performCsrfHandshake(jar) {
+    const startTime = Date.now();
+    
+    let csrfRes;
+    try {
+        csrfRes = http.get(`${BASE_URL}/sanctum/csrf-cookie`, {
+            headers: getBaseHeaders(),
+            jar: jar,
+            tags: { type: 'csrf_handshake' },
+        });
+    } catch (e) {
+        console.error(`[VU ${__VU}] CSRF request failed: ${e.message}`);
+        return {
+            response: null,
+            token: '',
+            success: false,
+        };
     }
+    
+    csrfDuration.add(Date.now() - startTime);
+    
+    const xsrfToken = getXsrfToken(csrfRes.cookies);
+    // Laravel Sanctum returns 204 No Content for CSRF endpoint
+    const success = (csrfRes.status === 200 || csrfRes.status === 204) && xsrfToken.length > 0;
+    csrfSuccessRate.add(success);
+    
+    return {
+        response: csrfRes,
+        token: xsrfToken,
+        success: success,
+    };
+}
 
-    check(logoutRes, {
-        'Logout status is 200': (r) => r.status === 200,
+// =========================================================================
+// 5. MAIN TEST SCENARIO
+// =========================================================================
+export default function () {
+    const user = users[(__VU - 1) % users.length];
+    const jar = http.cookieJar();
+    
+    group('POS Login Flow', function () {
+        // ---------------------------------------------------------
+        // FASE 1: SANCTUM CSRF HANDSHAKE
+        // ---------------------------------------------------------
+        const csrfResult = performCsrfHandshake(jar);
+        
+        check(csrfResult.response, {
+            'CSRF handshake successful': (r) => r !== null && csrfResult.success,
+            'CSRF token received': () => csrfResult.token.length > 0,
+        });
+        
+        if (!csrfResult.success || !csrfResult.response) {
+            logError('CSRF', csrfResult.response, user);
+            return;
+        }
+        
+        // ---------------------------------------------------------
+        // FASE 2: AUTHENTICATION REQUEST (POS LOGIN)
+        // ---------------------------------------------------------
+        const loginPayload = JSON.stringify({
+            username: user.username,
+            password: user.password,
+        });
+        
+        const loginStartTime = Date.now();
+        
+        let loginRes;
+        try {
+            loginRes = http.post(
+                `${BASE_URL}/api-test/v1/pos/auth/login`,
+                loginPayload,
+                {
+                    headers: {
+                        ...getBaseHeaders(),
+                        'Content-Type': 'application/json',
+                        'X-XSRF-TOKEN': csrfResult.token,
+                    },
+                    jar: jar,
+                    tags: { type: 'pos_login' },
+                }
+            );
+        } catch (e) {
+            console.error(`[VU ${__VU}] Login request failed: ${e.message}`);
+            return;
+        }
+        
+        loginDuration.add(Date.now() - loginStartTime);
+        
+        const loginSuccessful = loginRes.status === 200;
+        loginSuccessRate.add(loginSuccessful);
+        
+        if (loginSuccessful) {
+            totalUsersLoggedIn.add(1);
+        }
+        
+        check(loginRes, {
+            'Login status is 200': (r) => r.status === 200,
+            'Has valid session cookie': (r) => {
+                return r.cookies && Object.keys(r.cookies).some(
+                    name => name.toLowerCase().includes('session') ||
+                           name.toLowerCase().includes('sanctum') ||
+                           name.toLowerCase().includes('laravel')
+                );
+            },
+        });
+        
+        if (!loginSuccessful) {
+            logError('LOGIN', loginRes, user);
+            return;
+        }
+        
+        // ---------------------------------------------------------
+        // FASE 3: REFRESH CSRF TOKEN AFTER LOGIN
+        // ---------------------------------------------------------
+        const refreshResult = performCsrfHandshake(jar);
+        
+        if (!refreshResult.success) {
+            logError('CSRF_REFRESH', refreshResult.response, user);
+            return;
+        }
+        
+        const authHeaders = {
+            ...getBaseHeaders(),
+            'X-XSRF-TOKEN': refreshResult.token,
+        };
+        
+        // Think time simulation
+        sleep(Math.random() * 1.5 + 1);
+        
+        // ---------------------------------------------------------
+        // FASE 4: GET AUTHENTICATED USER (/me)
+        // ---------------------------------------------------------
+        const meStartTime = Date.now();
+        
+        let meRes;
+        try {
+            meRes = http.get(`${BASE_URL}/api-test/v1/auth/me`, {
+                headers: authHeaders,
+                jar: jar,
+                tags: { type: 'pos_me' },
+            });
+        } catch (e) {
+            console.error(`[VU ${__VU}] Me request failed: ${e.message}`);
+            return;
+        }
+        
+        meDuration.add(Date.now() - meStartTime);
+        
+        const meSuccessful = meRes.status === 200 && meRes.body && meRes.body.includes(user.username);
+        meSuccessRate.add(meSuccessful);
+        
+        check(meRes, {
+            'Me status is 200': (r) => r.status === 200,
+            'Me returns correct username': (r) =>
+                r.status === 200 && r.body && r.body.includes(user.username),
+        });
+        
+        if (!meSuccessful) {
+            logError('ME', meRes, user);
+        }
+        
+        // Think time simulation
+        sleep(Math.random() * 1.5 + 1);
+        
+        // ---------------------------------------------------------
+        // FASE 5: LOGOUT
+        // ---------------------------------------------------------
+        const logoutStartTime = Date.now();
+        
+        let logoutRes;
+        try {
+            logoutRes = http.post(
+                `${BASE_URL}/api-test/v1/auth/logout`,
+                null,
+                {
+                    headers: authHeaders,
+                    jar: jar,
+                    tags: { type: 'pos_logout' },
+                }
+            );
+        } catch (e) {
+            console.error(`[VU ${__VU}] Logout request failed: ${e.message}`);
+            return;
+        }
+        
+        logoutDuration.add(Date.now() - logoutStartTime);
+        
+        const logoutSuccessful = logoutRes.status === 200;
+        logoutSuccessRate.add(logoutSuccessful);
+        
+        check(logoutRes, {
+            'Logout status is 200': (r) => r.status === 200,
+        });
+        
+        if (!logoutSuccessful) {
+            logError('LOGOUT', logoutRes, user);
+        }
+        
+        // Think time simulation
+        sleep(Math.random() * 1.5 + 1);
     });
+}
 
-    sleep(Math.random() * 1.5 + 1); // Think time
+// =========================================================================
+// 6. SETUP & TEARDOWN FUNCTIONS
+// =========================================================================
+export function setup() {
+    console.log('=== POS Load Test Setup ===');
+    console.log(`Base URL: ${BASE_URL}`);
+    console.log(`Frontend URL: ${FRONTEND_URL}`);
+    console.log(`Total Users: ${users.length}`);
+    console.log(`Target VUs: 200`);
+    console.log(`Test Duration: 3 minutes`);
+    console.log('===========================');
+    
+    // Verify connectivity
+    try {
+        const healthCheck = http.get(`${BASE_URL}/sanctum/csrf-cookie`, {
+            headers: getBaseHeaders(),
+        });
+        console.log(`Initial CSRF check status: ${healthCheck.status}`);
+    } catch (e) {
+        console.error(`Cannot connect to ${BASE_URL}: ${e.message}`);
+        console.error('Make sure Laravel is running and BASE_URL is correct');
+    }
+    
+    return {
+        startTime: new Date().toISOString(),
+        config: {
+            baseUrl: BASE_URL,
+            frontendUrl: FRONTEND_URL,
+            userCount: users.length,
+        },
+    };
+}
+
+export function teardown(data) {
+    console.log('\n=== POS Load Test Summary ===');
+    console.log(`Start Time: ${data.startTime}`);
+    console.log(`End Time: ${new Date().toISOString()}`);
+    console.log(`Total Users: ${data.config.userCount}`);
+    console.log('==============================');
 }

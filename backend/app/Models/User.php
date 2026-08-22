@@ -24,6 +24,8 @@ class User extends Authenticatable
         'pin_code',
         'role',
         'is_active',
+        'last_login_at', 
+        'last_login_ip',
     ];
 
     protected $hidden = [
@@ -36,5 +38,6 @@ class User extends Authenticatable
     protected $casts = [
         'password' => 'hashed',
         'is_active' => 'boolean',
+        'last_login_at' => 'datetime',
     ];
 }
