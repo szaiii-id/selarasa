@@ -12,7 +12,8 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
 
   test.afterEach(async () => {
     try {
-      execSync('docker exec selarasa_backend php artisan cache:clear', { stdio: 'ignore' });
+      const containerName = process.env.BACKEND_CONTAINER || 'selarasa_backend';
+      execSync(`docker exec ${containerName} php artisan cache:clear`, { stdio: 'ignore' });
     } catch (error) {
       
     }

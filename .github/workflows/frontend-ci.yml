@@ -131,4 +131,5 @@ jobs:
         working-directory: ./${{ matrix.app }}
         env:
           CI: true
+          BACKEND_CONTAINER: selarasa_ci_backend_test
         run: npx playwright test
