@@ -146,6 +146,7 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
       
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
       await page.goto('/users');
+      await page.waitForLoadState('networkidle');
     });
 
     test('UI memproteksi akun Admin agar tidak bisa diedit/dihapus oleh Manager (Badge Locked)', async ({ page }) => {
@@ -168,6 +169,8 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
     });
 
     test('UI melindungi akun milik sendiri (Self-Protection) dari tombol Deactivate/Delete', async ({ page }) => {
+      // Langsung cari baris yang memiliki badge "You" tanpa perlu lewat search input 
+      // yang tercampur data k6 load test
       const selfRow = page.locator('tbody tr').filter({ hasText: 'You' }).first();
       
       await expect(selfRow).toBeVisible({ timeout: 15000 });
