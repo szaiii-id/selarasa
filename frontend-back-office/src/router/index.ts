@@ -33,7 +33,16 @@ const routes: RouteRecordRaw[] = [
     name: 'UserManagement',
     component: () => import('../pages/users/UserIndex.vue'), 
     meta: { 
-      requiresAuth: true ,
+      requiresAuth: true,
+      allowedRoles: ['admin', 'manager']
+    }
+  },
+  {
+    path: '/backoffice/shifts',
+    name: 'ShiftManagement',
+    component: () => import('../pages/shift/ShiftManagementPage.vue'), 
+    meta: { 
+      requiresAuth: true,
       allowedRoles: ['admin', 'manager']
     }
   },
@@ -48,10 +57,6 @@ const router = createRouter({
   routes,
 });
 
-/**
- * Global navigation guard to secure routes and manage session state.
- * Restores the user session from the backend on page refresh before evaluating route access.
- */
 router.beforeEach(async (to) => {
   const authStore = useAuthStore();
   
