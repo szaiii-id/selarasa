@@ -169,15 +169,17 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
     });
 
     test('UI melindungi akun milik sendiri (Self-Protection) dari tombol Deactivate/Delete', async ({ page }) => {
-      // Cari baris yang memiliki tombol "Edit" TAPI TIDAK memiliki tombol "Deactivate" 
-      // (Ini adalah karakteristik eksklusif milik akun yang sedang login sendiri)
-      const selfRow = page.locator('tbody tr')
-        .filter({ has: page.locator('button:has-text("Edit")') })
-        .filter({ hasNot: page.locator('button:has-text("Deactivate")') })
-        .first();
-      
-      await expect(selfRow).toBeVisible({ timeout: 15000 });
+      // 1. Ketik username persis untuk memunculkan akun manager asli ke halaman pertama
+      const searchInput = page.locator('input[placeholder="Search name or username..."]');
+      await searchInput.fill('Manager SelaRasa');
+      await page.waitForTimeout(1000);
 
+      // 2. Sekarang baris akun Anda dijamin muncul di halaman pertama tabel
+      const selfRow = page.locator('tbody tr').filter({ hasText: 'Manager SelaRasa' }).first();
+      
+      await expect(selfRow).toBeVisible({ timeout: 10000 });
+
+      // 3. Verifikasi proteksi mandiri (punya tombol Edit, tapi tidak punya Deactivate/Delete)
       await expect(selfRow.locator('button:has-text("Edit")')).toBeVisible();
       await expect(selfRow.locator('button:has-text("Deactivate")')).toHaveCount(0);
       await expect(selfRow.locator('button:has-text("Delete")')).toHaveCount(0);
