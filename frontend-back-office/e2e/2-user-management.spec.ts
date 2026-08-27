@@ -173,6 +173,11 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
       
       await page.waitForTimeout(2000); 
 
+      const isiTabel = await page.locator('tbody').innerText();
+      console.log('=== ISI TABEL DI CI SAAT INI ===');
+      console.log(isiTabel);
+      console.log('================================');
+
       const selfRow = page.locator('tbody tr').filter({ hasText: 'You' }).first();
       await expect(selfRow).toBeVisible({ timeout: 10000 });
 
