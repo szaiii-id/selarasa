@@ -53,22 +53,28 @@ describe('MasterShiftTable Component', () => {
       const wrapper = createWrapper({ shifts: mockShifts });
       
       const editButton = wrapper.findAll('button').find(btn => btn.text().includes('Edit'));
-      await editButton!.trigger('click');
+      if (!editButton) throw new Error('Tombol Edit tidak ditemukan');
+      await editButton.trigger('click');
       
       const emitted = wrapper.emitted('edit');
       expect(emitted).toBeTruthy();
-      expect(emitted![0][0]).toEqual(mockShifts[0]);
+      if (emitted) {
+        expect(emitted[0][0]).toEqual(mockShifts[0]);
+      }
     });
 
     it('[Happy Path] Emit "delete" dengan data shift saat tombol Delete diklik', async () => {
       const wrapper = createWrapper({ shifts: mockShifts });
       
       const deleteButton = wrapper.findAll('button').find(btn => btn.text().includes('Delete'));
-      await deleteButton!.trigger('click');
+      if (!deleteButton) throw new Error('Tombol Delete tidak ditemukan');
+      await deleteButton.trigger('click');
       
       const emitted = wrapper.emitted('delete');
       expect(emitted).toBeTruthy();
-      expect(emitted![0][0]).toEqual(mockShifts[0]);
+      if (emitted) {
+        expect(emitted[0][0]).toEqual(mockShifts[0]);
+      }
     });
 
     it('[Negative Path] Menampilkan error message saat errorMessage ada', () => {
@@ -88,7 +94,8 @@ describe('MasterShiftTable Component', () => {
       });
       
       const retryButton = wrapper.findAll('button').find(btn => btn.text().includes('Try Again'));
-      await retryButton!.trigger('click');
+      if (!retryButton) throw new Error('Tombol Try Again tidak ditemukan');
+      await retryButton.trigger('click');
       
       expect(wrapper.emitted('retry')).toBeTruthy();
     });
@@ -208,20 +215,28 @@ describe('MasterShiftTable Component', () => {
       const wrapper = createWrapper({ shifts: mockShifts });
       
       const editButtons = wrapper.findAll('button').filter(btn => btn.text().includes('Edit'));
+      if (editButtons.length < 2) throw new Error('Tombol Edit baris kedua tidak ditemukan');
       await editButtons[1].trigger('click');
       
       const emitted = wrapper.emitted('edit');
-      expect(emitted![0][0]).toEqual(mockShifts[1]);
+      expect(emitted).toBeTruthy();
+      if (emitted) {
+        expect(emitted[0][0]).toEqual(mockShifts[1]);
+      }
     });
 
     it('[Corner Case] Emit "delete" dengan shift yang benar untuk row kedua', async () => {
       const wrapper = createWrapper({ shifts: mockShifts });
       
       const deleteButtons = wrapper.findAll('button').filter(btn => btn.text().includes('Delete'));
+      if (deleteButtons.length < 2) throw new Error('Tombol Delete baris kedua tidak ditemukan');
       await deleteButtons[1].trigger('click');
       
       const emitted = wrapper.emitted('delete');
-      expect(emitted![0][0]).toEqual(mockShifts[1]);
+      expect(emitted).toBeTruthy();
+      if (emitted) {
+        expect(emitted[0][0]).toEqual(mockShifts[1]);
+      }
     });
 
     it('[Edge Case] Table header memiliki 5 kolom', () => {

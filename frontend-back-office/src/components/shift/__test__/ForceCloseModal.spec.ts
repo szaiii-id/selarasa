@@ -57,7 +57,8 @@ describe('ForceCloseModal Component', () => {
     it('[Happy Path] Modal dirender saat isOpen=true', () => {
       const wrapper = createWrapper({ isOpen: true });
       
-      expect(wrapper.find('.fixed').exists()).toBe(true);
+      // Menggunakan get untuk memastikan elemen ada (jika tidak ada, test otomatis gagal)
+      expect(wrapper.get('.fixed').isVisible()).toBe(true);
     });
 
     it('[Happy Path] Menampilkan info shift saat shift ada', () => {
@@ -75,27 +76,38 @@ describe('ForceCloseModal Component', () => {
       await wrapper.vm.$nextTick();
       await wrapper.vm.$nextTick();
       
-      // Isi form
-      await wrapper.find('input[type="number"]').setValue(1250000);
-      await wrapper.findAll('input[type="number"]')[1].setValue(1200000);
-      await wrapper.find('textarea').setValue('Cashier left without closing');
+      // Menggunakan get untuk elemen tunggal
+      await wrapper.get('input[type="number"]').setValue(1250000);
+      
+      // Type Guard untuk elemen array
+      const numberInputs = wrapper.findAll('input[type="number"]');
+      if (numberInputs.length < 2) throw new Error('Input number kedua tidak ditemukan');
+      await numberInputs[1].setValue(1200000);
+      
+      await wrapper.get('textarea').setValue('Cashier left without closing');
       
       const submitButton = wrapper.findAll('button').find(btn => btn.text().includes('Force Close Shift'));
-      await submitButton!.trigger('click');
+      if (!submitButton) throw new Error('Tombol Submit tidak ditemukan');
+      await submitButton.trigger('click');
       
       const emitted = wrapper.emitted('submit');
       expect(emitted).toBeTruthy();
-      expect(emitted![0][0]).toEqual({
-        expected_balance: 1250000,
-        closing_balance: 1200000,
-        notes: 'Cashier left without closing'
-      });
+      
+      // Memastikan emitted ada sebelum dicek isinya
+      if (emitted) {
+        expect(emitted[0][0]).toEqual({
+          expected_balance: 1250000,
+          closing_balance: 1200000,
+          notes: 'Cashier left without closing'
+        });
+      }
     });
 
     it('[Negative Path] Emit "close" saat tombol close di header diklik', async () => {
       const wrapper = createWrapper({ isOpen: true, shift: mockOpenShift });
       
       const closeButton = wrapper.findAll('button')[0];
+      if (!closeButton) throw new Error('Tombol Close tidak ditemukan');
       await closeButton.trigger('click');
       
       expect(wrapper.emitted('close')).toBeTruthy();
@@ -105,7 +117,8 @@ describe('ForceCloseModal Component', () => {
       const wrapper = createWrapper({ isOpen: true, shift: mockOpenShift });
       
       const cancelButton = wrapper.findAll('button').find(btn => btn.text().includes('Cancel'));
-      await cancelButton!.trigger('click');
+      if (!cancelButton) throw new Error('Tombol Cancel tidak ditemukan');
+      await cancelButton.trigger('click');
       
       expect(wrapper.emitted('close')).toBeTruthy();
     });
@@ -123,6 +136,8 @@ describe('ForceCloseModal Component', () => {
       await wrapper.vm.$nextTick();
       
       const numberInputs = wrapper.findAll('input[type="number"]');
+      if (numberInputs.length < 2) throw new Error('Input numbers tidak lengkap');
+      
       expect((numberInputs[0].element as HTMLInputElement).value).toBe('1250000');
       expect((numberInputs[1].element as HTMLInputElement).value).toBe('1250000');
     });
@@ -134,6 +149,7 @@ describe('ForceCloseModal Component', () => {
       await wrapper.vm.$nextTick();
       
       const numberInputs = wrapper.findAll('input[type="number"]');
+      if (numberInputs.length === 0) throw new Error('Input number tidak ditemukan');
       expect((numberInputs[0].element as HTMLInputElement).value).toBe('0');
     });
 
@@ -144,7 +160,7 @@ describe('ForceCloseModal Component', () => {
       await wrapper.vm.$nextTick();
       await wrapper.vm.$nextTick();
       
-      const textarea = wrapper.find('textarea');
+      const textarea = wrapper.get('textarea');
       expect((textarea.element as HTMLTextAreaElement).value).toBe('');
     });
 
@@ -187,6 +203,7 @@ describe('ForceCloseModal Component', () => {
       await wrapper.vm.$nextTick();
       
       const numberInputs = wrapper.findAll('input[type="number"]');
+      if (numberInputs.length === 0) throw new Error('Input number tidak ditemukan');
       expect((numberInputs[0].element as HTMLInputElement).value).toBe('0');
     });
 
@@ -198,6 +215,7 @@ describe('ForceCloseModal Component', () => {
       await wrapper.vm.$nextTick();
       
       const numberInputs = wrapper.findAll('input[type="number"]');
+      if (numberInputs.length === 0) throw new Error('Input number tidak ditemukan');
       expect((numberInputs[0].element as HTMLInputElement).value).toBe('1250000');
     });
 
@@ -209,10 +227,9 @@ describe('ForceCloseModal Component', () => {
         expect(input.attributes('disabled')).toBeDefined();
       });
       
-      const textarea = wrapper.find('textarea');
+      const textarea = wrapper.get('textarea');
       expect(textarea.attributes('disabled')).toBeDefined();
     });
-
 
     it('[BVA - Button Disabled] Submit button disabled saat isLoading=true', () => {
       const wrapper = createWrapper({ isOpen: true, shift: mockOpenShift, isLoading: true });
@@ -220,7 +237,8 @@ describe('ForceCloseModal Component', () => {
       const submitButton = wrapper.findAll('button').find(btn => 
         btn.text().includes('Processing...') || btn.text().includes('Force Close Shift')
       );
-      expect(submitButton!.attributes('disabled')).toBeDefined();
+      if (!submitButton) throw new Error('Submit button tidak ditemukan');
+      expect(submitButton.attributes('disabled')).toBeDefined();
     });
   });
 
@@ -251,7 +269,7 @@ describe('ForceCloseModal Component', () => {
       await wrapper.vm.$nextTick();
       
       // Ubah form
-      await wrapper.find('textarea').setValue('Changed notes');
+      await wrapper.get('textarea').setValue('Changed notes');
       
       // Tutup
       await wrapper.setProps({ isOpen: false });
@@ -262,7 +280,7 @@ describe('ForceCloseModal Component', () => {
       await wrapper.vm.$nextTick();
       await wrapper.vm.$nextTick();
       
-      const textarea = wrapper.find('textarea');
+      const textarea = wrapper.get('textarea');
       expect((textarea.element as HTMLTextAreaElement).value).toBe('');
     });
 
@@ -270,20 +288,23 @@ describe('ForceCloseModal Component', () => {
       const wrapper = createWrapper({ isOpen: true, shift: mockOpenShift, isLoading: true });
       
       const cancelButton = wrapper.findAll('button').find(btn => btn.text().includes('Cancel'));
-      expect(cancelButton!.attributes('disabled')).toBeDefined();
+      if (!cancelButton) throw new Error('Cancel button tidak ditemukan');
+      expect(cancelButton.attributes('disabled')).toBeDefined();
     });
 
     it('[Edge Case] Close button di header disabled saat isLoading=true', () => {
       const wrapper = createWrapper({ isOpen: true, shift: mockOpenShift, isLoading: true });
       
       const headerCloseButton = wrapper.findAll('button')[0];
+      if (!headerCloseButton) throw new Error('Header close button tidak ditemukan');
       expect(headerCloseButton.attributes('disabled')).toBeDefined();
     });
 
     it('[Edge Case] Mousedown pada backdrop emit "close"', async () => {
       const wrapper = createWrapper({ isOpen: true, shift: mockOpenShift });
       
-      await wrapper.find('.fixed').trigger('mousedown.self');
+      // Menggunakan get untuk memastikan ada
+      await wrapper.get('.fixed').trigger('mousedown.self');
       
       expect(wrapper.emitted('close')).toBeTruthy();
     });
@@ -291,13 +312,14 @@ describe('ForceCloseModal Component', () => {
     it('[Edge Case] Textarea memiliki placeholder yang benar', () => {
       const wrapper = createWrapper({ isOpen: true, shift: mockOpenShift });
       
-      const textarea = wrapper.find('textarea');
+      const textarea = wrapper.get('textarea');
       expect(textarea.attributes('placeholder')).toContain('Device crash');
     });
 
     it('[Edge Case] Header memiliki background error/5', () => {
       const wrapper = createWrapper({ isOpen: true, shift: mockOpenShift });
       
+      // Tetap menggunakan find karena kita ingin memastikan dia exists() (bisa saja tidak ada)
       const header = wrapper.find('.bg-error\\/5');
       expect(header.exists()).toBe(true);
     });
