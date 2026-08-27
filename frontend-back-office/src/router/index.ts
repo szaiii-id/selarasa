@@ -7,6 +7,7 @@ declare module 'vue-router' {
   interface RouteMeta {
     layout?: typeof AuthLayout;
     requiresAuth?: boolean;
+    allowedRoles?: ('admin' | 'manager' | 'inventory' | 'cashier')[];
   }
 }
 
@@ -28,6 +29,24 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/users',
+    name: 'UserManagement',
+    component: () => import('../pages/users/UserIndex.vue'), 
+    meta: { 
+      requiresAuth: true,
+      allowedRoles: ['admin', 'manager']
+    }
+  },
+  {
+    path: '/backoffice/shifts',
+    name: 'ShiftManagement',
+    component: () => import('../pages/shift/ShiftManagementPage.vue'), 
+    meta: { 
+      requiresAuth: true,
+      allowedRoles: ['admin', 'manager']
+    }
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/login'
   }
@@ -38,10 +57,6 @@ const router = createRouter({
   routes,
 });
 
-/**
- * Global navigation guard to secure routes and manage session state.
- * Restores the user session from the backend on page refresh before evaluating route access.
- */
 router.beforeEach(async (to) => {
   const authStore = useAuthStore();
   
@@ -57,6 +72,14 @@ router.beforeEach(async (to) => {
 
   if (to.name === 'Login' && isAuthenticated) {
     return { name: 'Dashboard' };
+  }
+
+  if (to.meta.allowedRoles) {
+    const userRole = authStore.user?.role;
+    
+    if (userRole && !to.meta.allowedRoles.includes(userRole)) {
+      return { name: 'Dashboard' }; 
+    }
   }
 
   return true;
