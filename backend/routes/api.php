@@ -3,8 +3,11 @@
 use App\Http\Controllers\Api\V1\Auth\LogoutController;
 use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\BackOffice\Auth\LoginController as BackOfficeLoginController;
-use App\Http\Controllers\Api\V1\Pos\Auth\LoginController as PosLoginController;
+use App\Http\Controllers\Api\V1\BackOffice\Shift\ShiftController;
+use App\Http\Controllers\Api\V1\BackOffice\Shift\CashierShiftController as BackOfficeCashierShiftController;
 use App\Http\Controllers\Api\V1\BackOffice\User\UserController;
+use App\Http\Controllers\Api\V1\Pos\Auth\LoginController as PosLoginController;
+use App\Http\Controllers\Api\V1\Pos\Shift\CashierShiftController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -57,21 +60,68 @@ Route::prefix('v1')->group(function () {
 
         /*
         |----------------------------------------------------------------------
-        | USER MANAGEMENT MODULE (HR)
+        | HR & OPERATIONS RESTRICTED AREA
         |----------------------------------------------------------------------
-        | Restricted Area: We lock this down even further.
-        | Out of the 3 roles present in the Back-Office, only Admin and Manager 
-        | are permitted in this module. Inventory will be denied.
+        | Only Admin and Manager are permitted in this module. 
+        | Inventory will be denied.
         */
         Route::middleware(['role:admin,manager'])->group(function () {
             
+            // ==========================================
+            // USER MANAGEMENT
+            // ==========================================
             Route::prefix('users')->name('api.v1.backoffice.users.')->group(function () {
-                Route::patch('/{user}/deactivate', [UserController::class, 'deactivate'])
-                    ->name('deactivate');
+                Route::patch('/{user}/deactivate', [UserController::class, 'deactivate'])->name('deactivate');
+                Route::patch('/{user}/activate', [UserController::class, 'activate'])->name('activate');
             });
-
             Route::apiResource('users', UserController::class)->names('api.v1.backoffice.users');
 
+            // ==========================================
+            // SHIFT MANAGEMENT (MASTER DATA)
+            // ==========================================
+            Route::prefix('shifts')->name('api.v1.backoffice.shifts.')->group(function () {
+                // Custom route for dropdowns (must be placed before apiResource to prevent {shift} parameter conflict)
+                Route::get('/active', [ShiftController::class, 'active'])->name('active');
+            });
+            Route::apiResource('shifts', ShiftController::class)->names('api.v1.backoffice.shifts');
+
+            // ==========================================
+            // CASHIER SHIFT MONITORING & FORCE CLOSE
+            // ==========================================
+            Route::prefix('cashier-shifts')->name('api.v1.backoffice.cashier-shifts.')->group(function () {
+                Route::get('/', [BackOfficeCashierShiftController::class, 'index'])->name('index');
+                Route::post('/{id}/force-close', [BackOfficeCashierShiftController::class, 'forceClose'])->name('force-close');
+            });
+
+        });
+
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | 4. PROTECTED POS ROUTES
+    |--------------------------------------------------------------------------
+    | Main POS Gateway:
+    | Accessible by Admin, Manager, and Cashier.
+    | Inventory will be denied access to POS functionalities.
+    */
+    Route::middleware(['auth:sanctum', 'active', 'throttle:api', 'role:admin,manager,cashier'])
+        ->prefix('pos')
+        ->group(function () {
+
+        /*
+        |----------------------------------------------------------------------
+        | CASHIER SHIFT SESSION MODULE
+        |----------------------------------------------------------------------
+        | Handled by the cashier during their daily operations.
+        */
+        Route::prefix('shifts')->name('api.v1.pos.shifts.')->group(function () {
+            
+            Route::get('/current', [CashierShiftController::class, 'current'])->name('current');
+            Route::post('/start', [CashierShiftController::class, 'start'])->name('start');
+            Route::post('/{id}/close', [CashierShiftController::class, 'close'])->name('close');
+            Route::post('/{id}/handover', [CashierShiftController::class, 'handover'])->name('handover');
+            
         });
 
     });

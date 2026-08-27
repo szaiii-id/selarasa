@@ -16,9 +16,11 @@ return new class extends Migration
             $table->string('name');
             $table->string('username')->unique();
             $table->string('password');
-            $table->string('pin_code',6)->nullable();
+            $table->string('pin_code',255)->nullable();
             $table->enum('role', ['admin', 'manager', 'inventory', 'cashier'])->default('cashier');
             $table->boolean('is_active')->default(true);
+            $table->timestamp('last_login_at')->nullable();
+            $table->string('last_login_ip', 45)->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
