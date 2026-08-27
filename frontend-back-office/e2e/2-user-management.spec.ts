@@ -168,12 +168,13 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
       await expect(lockedBadge).toBeVisible();
     });
 
-test('UI melindungi akun milik sendiri (Self-Protection) dari tombol Deactivate/Delete', async ({ page }) => {
-      // Karena akun yang sedang login adalah 'manager', kita cari baris yang memiliki tombol Edit 
-      // DAN TIDAK memiliki tombol Deactivate/Delete (atau langsung cari baris yang memuat teks "You").
-      
-      // Tunggu sampai tabel ter-render dengan sempurna
-      const selfRow = page.locator('tbody tr').filter({ has: page.locator('span', { hasText: 'You' }) }).first();
+    test('UI melindungi akun milik sendiri (Self-Protection) dari tombol Deactivate/Delete', async ({ page }) => {
+      // Cari baris yang memiliki tombol "Edit" TAPI TIDAK memiliki tombol "Deactivate" 
+      // (Ini adalah karakteristik eksklusif milik akun yang sedang login sendiri)
+      const selfRow = page.locator('tbody tr')
+        .filter({ has: page.locator('button:has-text("Edit")') })
+        .filter({ hasNot: page.locator('button:has-text("Deactivate")') })
+        .first();
       
       await expect(selfRow).toBeVisible({ timeout: 15000 });
 
