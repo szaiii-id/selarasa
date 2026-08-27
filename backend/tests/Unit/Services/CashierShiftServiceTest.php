@@ -14,47 +14,56 @@ use Tests\TestCase;
 
 uses(TestCase::class);
 
-function callProtectedMethod($object, string $methodName, array $parameters = [])
-{
-    $reflection = new ReflectionClass($object);
-    $method = $reflection->getMethod($methodName);
-    $method->setAccessible(true);
-    
-    return $method->invokeArgs($object, $parameters);
-}
-
-function mockUserWithPin(string $pinCode) {
-    $user = Mockery::mock(App\Models\User::class);
-    $user->shouldReceive('getAttribute')
-        ->with('pin_code')
-        ->andReturn($pinCode)
-        ->byDefault();
-    return $user;
-}
-
-function mockCashierShift(array $attributes = []) {
-    $shift = Mockery::mock(CashierShift::class);
-    
-    foreach ($attributes as $key => $value) {
-        $shift->shouldReceive('getAttribute')
-            ->with($key)
-            ->andReturn($value)
-            ->byDefault();
+// Helper function to access protected methods
+if (!function_exists('callProtectedMethod')) {
+    function callProtectedMethod($object, string $methodName, array $parameters = [])
+    {
+        $reflection = new ReflectionClass($object);
+        $method = $reflection->getMethod($methodName);
+        $method->setAccessible(true);
+        
+        return $method->invokeArgs($object, $parameters);
     }
-    
-    $shift->shouldReceive('fresh')
-        ->andReturnSelf()
-        ->byDefault();
-    
-    return $shift;
+}
+
+if (!function_exists('mockUserWithPin')) {
+    function mockUserWithPin(string $pinCode) {
+        $user = Mockery::mock(App\Models\User::class);
+        $user->shouldReceive('getAttribute')
+            ->with('pin_code')
+            ->andReturn($pinCode)
+            ->byDefault();
+        return $user;
+    }
+}
+
+if (!function_exists('mockCashierShift')) {
+    function mockCashierShift(array $attributes = []) {
+        $shift = Mockery::mock(CashierShift::class);
+        
+        foreach ($attributes as $key => $value) {
+            $shift->shouldReceive('getAttribute')
+                ->with($key)
+                ->andReturn($value)
+                ->byDefault();
+        }
+        
+        $shift->shouldReceive('fresh')
+            ->andReturnSelf()
+            ->byDefault();
+        
+        return $shift;
+    }
 }
 
 beforeEach(function () {
+    // Mock untuk CashierShiftService
     $this->cashierShiftRepositoryMock = Mockery::mock(CashierShiftRepositoryInterface::class);
     $this->userRepositoryMock = Mockery::mock(UserRepositoryInterface::class);
     $this->cashierShiftModelMock = Mockery::mock(CashierShift::class);
     $this->userModelMock = Mockery::mock(App\Models\User::class);
     
+    // Instansiasi CashierShiftService (BUKAN ShiftService)
     $this->cashierShiftService = new CashierShiftService(
         $this->cashierShiftRepositoryMock,
         $this->userRepositoryMock
