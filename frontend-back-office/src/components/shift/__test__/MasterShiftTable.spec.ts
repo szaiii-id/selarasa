@@ -36,9 +36,6 @@ const createWrapper = (props = {}) => {
 };
 
 describe('MasterShiftTable Component', () => {
-  // =========================================================================
-  // 1. HAPPY & NEGATIVE PATH
-  // =========================================================================
   describe('Happy & Negative Path', () => {
     it('[Happy Path] Menampilkan data shifts dengan benar', () => {
       const wrapper = createWrapper({ shifts: mockShifts });
@@ -56,11 +53,10 @@ describe('MasterShiftTable Component', () => {
       if (!editButton) throw new Error('Tombol Edit tidak ditemukan');
       await editButton.trigger('click');
       
-      const emitted = wrapper.emitted('edit');
+      // ✅ Type assertion untuk emitted
+      const emitted = wrapper.emitted('edit') as Array<Array<MasterShift>>;
       expect(emitted).toBeTruthy();
-      if (emitted) {
-        expect(emitted[0][0]).toEqual(mockShifts[0]);
-      }
+      expect(emitted[0]![0]).toEqual(mockShifts[0]!);
     });
 
     it('[Happy Path] Emit "delete" dengan data shift saat tombol Delete diklik', async () => {
@@ -70,11 +66,10 @@ describe('MasterShiftTable Component', () => {
       if (!deleteButton) throw new Error('Tombol Delete tidak ditemukan');
       await deleteButton.trigger('click');
       
-      const emitted = wrapper.emitted('delete');
+      // ✅ Type assertion untuk emitted
+      const emitted = wrapper.emitted('delete') as Array<Array<MasterShift>>;
       expect(emitted).toBeTruthy();
-      if (emitted) {
-        expect(emitted[0][0]).toEqual(mockShifts[0]);
-      }
+      expect(emitted[0]![0]).toEqual(mockShifts[0]!);
     });
 
     it('[Negative Path] Menampilkan error message saat errorMessage ada', () => {
@@ -101,19 +96,16 @@ describe('MasterShiftTable Component', () => {
     });
   });
 
-  // =========================================================================
-  // 2. EQUIVALENCE PARTITIONING
-  // =========================================================================
   describe('Equivalence Partitioning', () => {
     it('[Partisi 1 - Data Aktif] Menampilkan badge "Active" untuk shift aktif', () => {
-      const wrapper = createWrapper({ shifts: [mockShifts[0]] });
+      const wrapper = createWrapper({ shifts: [mockShifts[0]!] });
       
       expect(wrapper.text()).toContain('Active');
       expect(wrapper.text()).not.toContain('Inactive');
     });
 
     it('[Partisi 2 - Data Nonaktif] Menampilkan badge "Inactive" untuk shift nonaktif', () => {
-      const wrapper = createWrapper({ shifts: [mockShifts[1]] });
+      const wrapper = createWrapper({ shifts: [mockShifts[1]!] });
       
       expect(wrapper.text()).toContain('Inactive');
       expect(wrapper.text()).not.toContain('Active');
@@ -148,9 +140,6 @@ describe('MasterShiftTable Component', () => {
     });
   });
 
-  // =========================================================================
-  // 3. BOUNDARY VALUE ANALYSIS (BVA)
-  // =========================================================================
   describe('Boundary Value Analysis (BVA)', () => {
     it('[BVA - Batas Bawah] 0 data = empty state', () => {
       const wrapper = createWrapper({ shifts: [] });
@@ -159,7 +148,7 @@ describe('MasterShiftTable Component', () => {
     });
 
     it('[BVA - Batas Bawah] 1 data = tampil 1 row', () => {
-      const wrapper = createWrapper({ shifts: [mockShifts[0]] });
+      const wrapper = createWrapper({ shifts: [mockShifts[0]!] });
       
       const rows = wrapper.findAll('tbody tr');
       expect(rows.length).toBe(1);
@@ -167,7 +156,7 @@ describe('MasterShiftTable Component', () => {
 
     it('[BVA - Batas Atas] 100 data = tampil 100 row', () => {
       const manyShifts = Array.from({ length: 100 }, (_, i) => ({
-        ...mockShifts[0],
+        ...mockShifts[0]!,
         id: i + 1,
         name: `Shift ${i + 1}`
       }));
@@ -179,33 +168,30 @@ describe('MasterShiftTable Component', () => {
     });
 
     it('[BVA - Waktu 00:00] formatTime untuk start_time 00:00:00', () => {
-      const midnightShift = { ...mockShifts[0], start_time: '00:00:00' };
+      const midnightShift = { ...mockShifts[0]!, start_time: '00:00:00' };
       const wrapper = createWrapper({ shifts: [midnightShift] });
       
       expect(wrapper.text()).toContain('00:00');
     });
 
     it('[BVA - Waktu 23:59] formatTime untuk end_time 23:59:59', () => {
-      const lateShift = { ...mockShifts[0], end_time: '23:59:59' };
+      const lateShift = { ...mockShifts[0]!, end_time: '23:59:59' };
       const wrapper = createWrapper({ shifts: [lateShift] });
       
       expect(wrapper.text()).toContain('23:59');
     });
   });
 
-  // =========================================================================
-  // 4. EDGE CASES & CORNER CASES
-  // =========================================================================
   describe('Edge Cases & Corner Cases', () => {
     it('[Edge Case] Shift nonaktif memiliki class opacity-60', () => {
-      const wrapper = createWrapper({ shifts: [mockShifts[1]] });
+      const wrapper = createWrapper({ shifts: [mockShifts[1]!] });
       
       const row = wrapper.find('tbody tr');
       expect(row.classes()).toContain('opacity-60');
     });
 
     it('[Edge Case] Shift aktif tidak memiliki class opacity-60', () => {
-      const wrapper = createWrapper({ shifts: [mockShifts[0]] });
+      const wrapper = createWrapper({ shifts: [mockShifts[0]!] });
       
       const row = wrapper.find('tbody tr');
       expect(row.classes()).not.toContain('opacity-60');
@@ -216,13 +202,12 @@ describe('MasterShiftTable Component', () => {
       
       const editButtons = wrapper.findAll('button').filter(btn => btn.text().includes('Edit'));
       if (editButtons.length < 2) throw new Error('Tombol Edit baris kedua tidak ditemukan');
-      await editButtons[1].trigger('click');
+      await editButtons[1]!.trigger('click');
       
-      const emitted = wrapper.emitted('edit');
+      // ✅ Type assertion untuk emitted
+      const emitted = wrapper.emitted('edit') as Array<Array<MasterShift>>;
       expect(emitted).toBeTruthy();
-      if (emitted) {
-        expect(emitted[0][0]).toEqual(mockShifts[1]);
-      }
+      expect(emitted[0]![0]).toEqual(mockShifts[1]!);
     });
 
     it('[Corner Case] Emit "delete" dengan shift yang benar untuk row kedua', async () => {
@@ -230,13 +215,12 @@ describe('MasterShiftTable Component', () => {
       
       const deleteButtons = wrapper.findAll('button').filter(btn => btn.text().includes('Delete'));
       if (deleteButtons.length < 2) throw new Error('Tombol Delete baris kedua tidak ditemukan');
-      await deleteButtons[1].trigger('click');
+      await deleteButtons[1]!.trigger('click');
       
-      const emitted = wrapper.emitted('delete');
+      // ✅ Type assertion untuk emitted
+      const emitted = wrapper.emitted('delete') as Array<Array<MasterShift>>;
       expect(emitted).toBeTruthy();
-      if (emitted) {
-        expect(emitted[0][0]).toEqual(mockShifts[1]);
-      }
+      expect(emitted[0]![0]).toEqual(mockShifts[1]!);
     });
 
     it('[Edge Case] Table header memiliki 5 kolom', () => {
