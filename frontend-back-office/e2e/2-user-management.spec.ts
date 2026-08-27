@@ -171,11 +171,15 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
       const searchInput = page.locator('input[placeholder="Search name or username..."]');
       await searchInput.fill('manager');
       
-      const selfRow = page.locator('tbody tr').filter({ hasText: 'You' }).first();
-      await expect(selfRow).toBeVisible({ timeout: 15000 });
+      await page.waitForTimeout(1500);
+
+      const selfRow = page.locator('tbody tr').filter({ hasText: 'manager' }).first();
+      
+      await expect(selfRow).toBeVisible({ timeout: 10000 });
+
+      await expect(selfRow).toContainText('You', { ignoreCase: true });
 
       await expect(selfRow.locator('button:has-text("Edit")')).toBeVisible();
-
       await expect(selfRow.locator('button:has-text("Deactivate")')).toHaveCount(0);
       await expect(selfRow.locator('button:has-text("Delete")')).toHaveCount(0);
     });
