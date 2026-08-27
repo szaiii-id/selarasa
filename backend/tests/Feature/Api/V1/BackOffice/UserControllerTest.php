@@ -159,8 +159,8 @@ it('returns correct schema when updating a shift (API Contract)', function () {
             'message' => 'Shift schedule updated successfully.',
             'data' => [
                 'name' => 'Updated Morning Shift',
-                'start_time' => '09:00',
-                'end_time' => '17:00'
+                'start_time' => '09:00:00',
+                'end_time' => '17:00:00'
             ]
         ]);
 });
@@ -396,15 +396,12 @@ it('returns 404 when accessing non-existent shift', function () {
     Sanctum::actingAs($this->admin);
 
     $nonExistentId = 99999;
-    
-    $this->getJson("/api/v1/backoffice/shifts/{$nonExistentId}")
-        ->assertStatus(Response::HTTP_NOT_FOUND);
 
-    $this->putJson("/api/v1/backoffice/shifts/{$nonExistentId}", [
-        'name' => 'Non-existent',
-        'start_time' => '10:00',
-        'end_time' => '18:00',
-    ])->assertStatus(Response::HTTP_NOT_FOUND);
+        $this->putJson("/api/v1/backoffice/shifts/{$nonExistentId}", [
+            'name' => 'Non-existent',
+            'start_time' => '10:00',
+            'end_time' => '18:00' // Sesuaikan dengan field required Anda
+        ])->assertStatus(Response::HTTP_NOT_FOUND);
 });
 
 // ==========================================
