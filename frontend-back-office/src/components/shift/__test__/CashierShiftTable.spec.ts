@@ -96,33 +96,35 @@ describe('CashierShiftTable Component', () => {
       const wrapper = createWrapper({ shifts: [mockOpenShift] });
       
       const forceCloseButton = wrapper.findAll('button').find(btn => btn.text().includes('Force Close'));
-      await forceCloseButton!.trigger('click');
+      if (!forceCloseButton) throw new Error('Tombol Force Close tidak ditemukan');
+      await forceCloseButton.trigger('click');
       
       const emitted = wrapper.emitted('force-close');
       expect(emitted).toBeTruthy();
-      expect(emitted![0][0]).toEqual(mockOpenShift);
+      expect(emitted?.[0]?.[0]).toEqual(mockOpenShift);
     });
 
     it('[Happy Path] Emit "page-change" dengan page number saat tombol Next diklik', async () => {
       const wrapper = createWrapper({ shifts: [mockClosedShift] });
       
       const nextButton = wrapper.findAll('button').find(btn => btn.text().includes('Next'));
-      await nextButton!.trigger('click');
+      if (!nextButton) throw new Error('Tombol Next tidak ditemukan');
+      await nextButton.trigger('click');
       
       const emitted = wrapper.emitted('page-change');
       expect(emitted).toBeTruthy();
-      expect(emitted![0][0]).toBe(2);
+      expect(emitted?.[0]?.[0]).toBe(2);
     });
 
     it('[Happy Path] Emit "filter-change" dengan filter status saat dropdown berubah', async () => {
       const wrapper = createWrapper({ shifts: [] });
       
-      const select = wrapper.find('select');
+      const select = wrapper.get('select');
       await select.setValue('open');
       
       const emitted = wrapper.emitted('filter-change');
       expect(emitted).toBeTruthy();
-      expect(emitted![0][0]).toEqual({ status: 'open' });
+      expect(emitted?.[0]?.[0]).toEqual({ status: 'open' });
     });
 
     it('[Negative Path] Menampilkan error message saat errorMessage ada', () => {
@@ -142,7 +144,8 @@ describe('CashierShiftTable Component', () => {
       });
       
       const retryButton = wrapper.findAll('button').find(btn => btn.text().includes('Try Again'));
-      await retryButton!.trigger('click');
+      if (!retryButton) throw new Error('Tombol Try Again tidak ditemukan');
+      await retryButton.trigger('click');
       
       expect(wrapper.emitted('retry')).toBeTruthy();
     });
@@ -184,33 +187,36 @@ describe('CashierShiftTable Component', () => {
       const wrapper = createWrapper({ shifts: [] });
       
       const todayButton = wrapper.findAll('button').find(btn => btn.text().includes('Today'));
-      await todayButton!.trigger('click');
+      if (!todayButton) throw new Error('Tombol Today tidak ditemukan');
+      await todayButton.trigger('click');
       
       const emitted = wrapper.emitted('filter-change');
       expect(emitted).toBeTruthy();
-      expect(emitted![0][0].date).toBeDefined();
+      expect((emitted?.[0]?.[0] as any)?.date).toBeDefined();
     });
 
     it('[Partisi 6 - Filter 7 Days] Emit filter kosong untuk 7 days (backend default)', async () => {
       const wrapper = createWrapper({ shifts: [] });
       
       const sevenDaysButton = wrapper.findAll('button').find(btn => btn.text().includes('7 Days'));
-      await sevenDaysButton!.trigger('click');
+      if (!sevenDaysButton) throw new Error('Tombol 7 Days tidak ditemukan');
+      await sevenDaysButton.trigger('click');
       
       const emitted = wrapper.emitted('filter-change');
       expect(emitted).toBeTruthy();
-      expect(emitted![0][0]).toEqual({});
+      expect(emitted?.[0]?.[0]).toEqual({});
     });
 
     it('[Partisi 7 - Filter 30 Days] Emit filter dengan date_from 30 hari lalu', async () => {
       const wrapper = createWrapper({ shifts: [] });
       
       const thirtyDaysButton = wrapper.findAll('button').find(btn => btn.text().includes('30 Days'));
-      await thirtyDaysButton!.trigger('click');
+      if (!thirtyDaysButton) throw new Error('Tombol 30 Days tidak ditemukan');
+      await thirtyDaysButton.trigger('click');
       
       const emitted = wrapper.emitted('filter-change');
       expect(emitted).toBeTruthy();
-      expect(emitted![0][0].date_from).toBeDefined();
+      expect((emitted?.[0]?.[0] as any)?.date_from).toBeDefined();
     });
   });
 
@@ -225,7 +231,8 @@ describe('CashierShiftTable Component', () => {
       });
       
       const prevButton = wrapper.findAll('button').find(btn => btn.text().includes('Prev'));
-      expect(prevButton!.attributes('disabled')).toBeDefined();
+      if (!prevButton) throw new Error('Tombol Prev tidak ditemukan');
+      expect(prevButton.attributes('disabled')).toBeDefined();
     });
 
     it('[BVA - Batas Atas] Pagination current_page=last_page, tombol Next disabled', () => {
@@ -235,7 +242,8 @@ describe('CashierShiftTable Component', () => {
       });
       
       const nextButton = wrapper.findAll('button').find(btn => btn.text().includes('Next'));
-      expect(nextButton!.attributes('disabled')).toBeDefined();
+      if (!nextButton) throw new Error('Tombol Next tidak ditemukan');
+      expect(nextButton.attributes('disabled')).toBeDefined();
     });
 
     it('[BVA - Page 0] changePage(0) tidak emit karena < 1', async () => {
@@ -245,7 +253,8 @@ describe('CashierShiftTable Component', () => {
       });
       
       const prevButton = wrapper.findAll('button').find(btn => btn.text().includes('Prev'));
-      await prevButton!.trigger('click');
+      if (!prevButton) throw new Error('Tombol Prev tidak ditemukan');
+      await prevButton.trigger('click');
       
       expect(wrapper.emitted('page-change')).toBeFalsy();
     });
@@ -257,7 +266,8 @@ describe('CashierShiftTable Component', () => {
       });
       
       const nextButton = wrapper.findAll('button').find(btn => btn.text().includes('Next'));
-      await nextButton!.trigger('click');
+      if (!nextButton) throw new Error('Tombol Next tidak ditemukan');
+      await nextButton.trigger('click');
       
       expect(wrapper.emitted('page-change')).toBeFalsy();
     });

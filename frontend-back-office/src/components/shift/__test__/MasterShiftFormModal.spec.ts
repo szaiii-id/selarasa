@@ -61,16 +61,20 @@ describe('MasterShiftFormModal Component', () => {
       
       await wrapper.vm.$nextTick();
       
-      await wrapper.find('input[type="text"]').setValue('Night Shift');
-      await wrapper.findAll('input[type="time"]')[0].setValue('00:00');
-      await wrapper.findAll('input[type="time"]')[1].setValue('08:00');
+      await wrapper.get('input[type="text"]').setValue('Night Shift');
+      const timeInputs = wrapper.findAll('input[type="time"]');
+      if (timeInputs.length < 2) throw new Error('Time inputs tidak ditemukan');
+      
+      await timeInputs[0].setValue('00:00');
+      await timeInputs[1].setValue('08:00');
       
       const saveButton = wrapper.findAll('button').find(btn => btn.text().includes('Save Shift'));
-      await saveButton!.trigger('click');
+      if (!saveButton) throw new Error('Tombol Save Shift tidak ditemukan');
+      await saveButton.trigger('click');
       
       const emitted = wrapper.emitted('submit');
       expect(emitted).toBeTruthy();
-      expect(emitted![0][0]).toEqual({
+      expect(emitted?.[0]?.[0]).toEqual({
         name: 'Night Shift',
         start_time: '00:00',
         end_time: '08:00',
@@ -90,11 +94,12 @@ describe('MasterShiftFormModal Component', () => {
         await wrapper.vm.$nextTick();
         
         const saveButton = wrapper.findAll('button').find(btn => btn.text().includes('Save Shift'));
-        await saveButton!.trigger('click');
+        if (!saveButton) throw new Error('Tombol Save Shift tidak ditemukan');
+        await saveButton.trigger('click');
         
         const emitted = wrapper.emitted('submit');
         expect(emitted).toBeTruthy();
-        expect(emitted![0][0]).toEqual({
+        expect(emitted?.[0]?.[0]).toEqual({
             name: 'Morning Shift',
             start_time: '08:00',
             end_time: '16:00',
@@ -107,6 +112,7 @@ describe('MasterShiftFormModal Component', () => {
       
       // Tombol close adalah button pertama (di header)
       const closeButton = wrapper.findAll('button')[0];
+      if (!closeButton) throw new Error('Tombol close di header tidak ditemukan');
       await closeButton.trigger('click');
       
       expect(wrapper.emitted('close')).toBeTruthy();
@@ -116,7 +122,8 @@ describe('MasterShiftFormModal Component', () => {
       const wrapper = createWrapper({ isOpen: true });
       
       const cancelButton = wrapper.findAll('button').find(btn => btn.text().includes('Cancel'));
-      await cancelButton!.trigger('click');
+      if (!cancelButton) throw new Error('Tombol Cancel tidak ditemukan');
+      await cancelButton.trigger('click');
       
       expect(wrapper.emitted('close')).toBeTruthy();
     });
@@ -133,8 +140,9 @@ describe('MasterShiftFormModal Component', () => {
       await wrapper.vm.$nextTick();
       await wrapper.vm.$nextTick();
       
-      const nameInput = wrapper.find('input[type="text"]');
+      const nameInput = wrapper.get('input[type="text"]');
       const timeInputs = wrapper.findAll('input[type="time"]');
+      if (timeInputs.length < 2) throw new Error('Time inputs tidak ditemukan');
       
       expect((nameInput.element as HTMLInputElement).value).toBe('');
       expect((timeInputs[0].element as HTMLInputElement).value).toBe('08:00');
@@ -148,8 +156,9 @@ describe('MasterShiftFormModal Component', () => {
       await wrapper.vm.$nextTick();
       await wrapper.vm.$nextTick();
       
-      const nameInput = wrapper.find('input[type="text"]');
+      const nameInput = wrapper.get('input[type="text"]');
       const timeInputs = wrapper.findAll('input[type="time"]');
+      if (timeInputs.length < 2) throw new Error('Time inputs tidak ditemukan');
       
       expect((nameInput.element as HTMLInputElement).value).toBe('Morning Shift');
       expect((timeInputs[0].element as HTMLInputElement).value).toBe('08:00');
@@ -161,7 +170,7 @@ describe('MasterShiftFormModal Component', () => {
       
       await wrapper.vm.$nextTick();
       
-      const checkbox = wrapper.find('input[type="checkbox"]');
+      const checkbox = wrapper.get('input[type="checkbox"]');
       expect((checkbox.element as HTMLInputElement).checked).toBe(true);
     });
 
@@ -173,7 +182,7 @@ describe('MasterShiftFormModal Component', () => {
       await wrapper.vm.$nextTick();
       await wrapper.vm.$nextTick();
       
-      const checkbox = wrapper.find('input[type="checkbox"]');
+      const checkbox = wrapper.get('input[type="checkbox"]');
       expect((checkbox.element as HTMLInputElement).checked).toBe(false);
     });
 
@@ -209,7 +218,7 @@ describe('MasterShiftFormModal Component', () => {
       await wrapper.vm.$nextTick();
       await wrapper.vm.$nextTick();
       
-      const nameInput = wrapper.find('input[type="text"]');
+      const nameInput = wrapper.get('input[type="text"]');
       expect((nameInput.element as HTMLInputElement).value).toBe('');
     });
 
@@ -220,7 +229,7 @@ describe('MasterShiftFormModal Component', () => {
       await wrapper.vm.$nextTick();
       await wrapper.vm.$nextTick();
       
-      const nameInput = wrapper.find('input[type="text"]');
+      const nameInput = wrapper.get('input[type="text"]');
       expect((nameInput.element as HTMLInputElement).value).toBe('Morning Shift');
     });
 
@@ -233,6 +242,7 @@ describe('MasterShiftFormModal Component', () => {
       await wrapper.vm.$nextTick();
       
       const timeInputs = wrapper.findAll('input[type="time"]');
+      if (timeInputs.length < 1) throw new Error('Time inputs tidak ditemukan');
       expect((timeInputs[0].element as HTMLInputElement).value).toBe('00:00');
     });
 
@@ -245,6 +255,7 @@ describe('MasterShiftFormModal Component', () => {
       await wrapper.vm.$nextTick();
       
       const timeInputs = wrapper.findAll('input[type="time"]');
+      if (timeInputs.length < 2) throw new Error('Time inputs tidak ditemukan');
       expect((timeInputs[1].element as HTMLInputElement).value).toBe('23:59');
     });
 
@@ -297,7 +308,7 @@ describe('MasterShiftFormModal Component', () => {
       await wrapper.vm.$nextTick();
       await wrapper.vm.$nextTick();
       
-      await wrapper.find('input[type="text"]').setValue('Changed Shift');
+      await wrapper.get('input[type="text"]').setValue('Changed Shift');
       
       await wrapper.setProps({ isOpen: false });
       await wrapper.vm.$nextTick();
@@ -306,7 +317,7 @@ describe('MasterShiftFormModal Component', () => {
       await wrapper.vm.$nextTick();
       await wrapper.vm.$nextTick();
       
-      const nameInput = wrapper.find('input[type="text"]');
+      const nameInput = wrapper.get('input[type="text"]');
       expect((nameInput.element as HTMLInputElement).value).toBe('Morning Shift');
     });
 
@@ -322,13 +333,14 @@ describe('MasterShiftFormModal Component', () => {
       const wrapper = createWrapper({ isOpen: true, isLoading: true });
       
       const headerCloseButton = wrapper.findAll('button')[0];
+      if (!headerCloseButton) throw new Error('Header close button tidak ditemukan');
       expect(headerCloseButton.attributes('disabled')).toBeDefined();
     });
 
     it('[Edge Case] Mousedown pada backdrop emit "close"', async () => {
       const wrapper = createWrapper({ isOpen: true });
       
-      await wrapper.find('.fixed').trigger('mousedown.self');
+      await wrapper.get('.fixed').trigger('mousedown.self');
       
       expect(wrapper.emitted('close')).toBeTruthy();
     });
@@ -338,14 +350,16 @@ describe('MasterShiftFormModal Component', () => {
       
       await wrapper.vm.$nextTick();
       
-      const checkbox = wrapper.find('input[type="checkbox"]');
+      const checkbox = wrapper.get('input[type="checkbox"]');
       await checkbox.setValue(false);
       
       const saveButton = wrapper.findAll('button').find(btn => btn.text().includes('Save Shift'));
-      await saveButton!.trigger('click');
+      if (!saveButton) throw new Error('Tombol Save Shift tidak ditemukan');
+      await saveButton.trigger('click');
       
       const emitted = wrapper.emitted('submit');
-      expect(emitted![0][0].is_active).toBe(false);
+      expect(emitted).toBeTruthy();
+      expect((emitted?.[0]?.[0] as any)?.is_active).toBe(false);
     });
   });
 });
