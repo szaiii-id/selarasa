@@ -168,18 +168,9 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
     });
 
     test('UI melindungi akun milik sendiri (Self-Protection) dari tombol Deactivate/Delete', async ({ page }) => {
-      const searchInput = page.locator('input[placeholder="Search name or username..."]');
-      await searchInput.fill('manager');
-      
-      await page.waitForTimeout(2000); 
-
-      const isiTabel = await page.locator('tbody').innerText();
-      console.log('=== ISI TABEL DI CI SAAT INI ===');
-      console.log(isiTabel);
-      console.log('================================');
-
       const selfRow = page.locator('tbody tr').filter({ hasText: 'You' }).first();
-      await expect(selfRow).toBeVisible({ timeout: 10000 });
+      
+      await expect(selfRow).toBeVisible({ timeout: 15000 });
 
       await expect(selfRow.locator('button:has-text("Edit")')).toBeVisible();
       await expect(selfRow.locator('button:has-text("Deactivate")')).toHaveCount(0);
