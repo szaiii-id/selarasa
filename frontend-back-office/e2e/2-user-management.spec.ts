@@ -172,13 +172,10 @@ test.describe('Alur Manajemen Pengguna (User Management E2E - Full Journey)', ()
       await searchInput.fill('manager');
       await page.waitForTimeout(500);
 
-      const selfRow = page.locator('tbody tr').first();
+      const selfRow = page.locator('tbody tr').filter({ has: page.locator('span:has-text("You")') });
       await expect(selfRow).toBeVisible();
 
       await expect(selfRow.locator('button:has-text("Edit")')).toBeVisible();
-
-      const youBadge = selfRow.locator('span:has-text("You")');
-      await expect(youBadge).toBeVisible();
 
       await expect(selfRow.locator('button:has-text("Deactivate")')).toHaveCount(0);
       await expect(selfRow.locator('button:has-text("Delete")')).toHaveCount(0);
