@@ -11,19 +11,22 @@ const getUsersListSuccessRate = new Rate('get_users_list_success');
 const createUserSuccessRate = new Rate('create_user_success');
 const getProfileSuccessRate = new Rate('get_profile_success');
 const deactivateSuccessRate = new Rate('deactivate_success');
+const activateSuccessRate = new Rate('activate_success');
 const csrfSuccessRate = new Rate('csrf_success_rate');
 
 const getUsersListDuration = new Trend('get_users_list_duration', true);
 const createUserDuration = new Trend('create_user_duration', true);
 const getProfileDuration = new Trend('get_profile_duration', true);
 const deactivateDuration = new Trend('deactivate_duration', true);
+const activateDuration = new Trend('activate_duration', true);
 const csrfDuration = new Trend('csrf_duration', true);
 
 const totalUsersCreated = new Counter('total_users_created');
 const totalUsersDeactivated = new Counter('total_users_deactivated');
+const totalUsersActivated = new Counter('total_users_activated');
 
 // =========================================================================
-// 2. CONFIGURATION & THRESHOLDS (SLA UNTUK MODULE USER)
+// 2. CONFIGURATION & THRESHOLDS
 // =========================================================================
 export const options = {
     scenarios: {
@@ -31,35 +34,29 @@ export const options = {
             executor: 'ramping-vus',
             startVUs: 0,
             stages: [
-                { duration: '20s', target: 50 },  // Ramp-up
-                { duration: '1m', target: 50 },   // Stable Load
-                { duration: '20s', target: 0 },   // Ramp-down
+                { duration: '20s', target: 50 },
+                { duration: '1m', target: 50 },
+                { duration: '20s', target: 0 },
             ],
             gracefulStop: '30s',
         },
     },
     thresholds: {
-        // SLA: Paginasi langsung ke PostgreSQL
         'http_req_duration{type:get_users_list}': ['p(95)<300'],
         'http_req_failed{type:get_users_list}': ['rate<0.01'],
         'get_users_list_success': ['rate>0.95'],
-        
-        // SLA: Write operation (Transaction & Hash)
         'http_req_duration{type:create_user}': ['p(95)<500'],
         'http_req_failed{type:create_user}': ['rate<0.01'],
         'create_user_success': ['rate>0.95'],
-        
-        // SLA KETAT: Membaca profil individu (Menggunakan Redis Cache)
         'http_req_duration{type:get_user_profile}': ['p(95)<150'],
         'http_req_failed{type:get_user_profile}': ['rate<0.01'],
         'get_profile_success': ['rate>0.95'],
-        
-        // SLA: Deactivate operation (Guard Validation & Update)
         'http_req_duration{type:deactivate_user}': ['p(95)<500'],
         'http_req_failed{type:deactivate_user}': ['rate<0.01'],
         'deactivate_success': ['rate>0.95'],
-        
-        // Global threshold
+        'http_req_duration{type:activate_user}': ['p(95)<500'],
+        'http_req_failed{type:activate_user}': ['rate<0.01'],
+        'activate_success': ['rate>0.95'],
         'http_req_failed': ['rate<0.01'],
     },
 };
@@ -86,9 +83,7 @@ const users = new SharedArray('test admins', function () {
 // 4. HELPER FUNCTIONS
 // =========================================================================
 function getXsrfToken(cookies) {
-    if (!cookies || !cookies['XSRF-TOKEN']) {
-        return '';
-    }
+    if (!cookies || !cookies['XSRF-TOKEN']) return '';
     
     try {
         const xsrfCookie = cookies['XSRF-TOKEN'];
@@ -157,7 +152,6 @@ function performCsrfHandshake(jar) {
             tags: { type: 'csrf_handshake' },
         });
     } catch (e) {
-        console.error(`[VU ${__VU}] CSRF request failed: ${e.message}`);
         return { response: null, token: '', success: false };
     }
     
@@ -192,7 +186,6 @@ function performLogin(jar, csrfToken, user) {
             }
         );
     } catch (e) {
-        console.error(`[VU ${__VU}] Login request failed: ${e.message}`);
         return { response: null, success: false };
     }
     
@@ -209,29 +202,15 @@ export default function () {
     const user = users[(__VU - 1) % users.length];
     const jar = http.cookieJar();
     
-    // --- FASE 1: SANCTUM CSRF HANDSHAKE ---
+    // Login
     const csrfResult = performCsrfHandshake(jar);
+    if (!csrfResult.success) return;
     
-    if (!csrfResult.success) {
-        logError('CSRF', csrfResult.response, user);
-        return;
-    }
-    
-    // --- FASE 2: LOGIN ---
     const loginResult = performLogin(jar, csrfResult.token, user);
+    if (!loginResult.success) return;
     
-    if (!loginResult.success) {
-        logError('LOGIN', loginResult.response, user);
-        return;
-    }
-    
-    // --- FASE 3: REFRESH CSRF TOKEN ---
     const refreshResult = performCsrfHandshake(jar);
-    
-    if (!refreshResult.success) {
-        logError('CSRF_REFRESH', refreshResult.response, user);
-        return;
-    }
+    if (!refreshResult.success) return;
     
     const mutationHeaders = {
         ...getBaseHeaders(),
@@ -246,19 +225,13 @@ export default function () {
     
     sleep(1);
     
-    // ---------------------------------------------------------
-    // TEST 1: GET PAGINATED USERS (Test PostgreSQL Read)
-    // ---------------------------------------------------------
+    // TEST 1: GET PAGINATED USERS
     group('User Module: Get Paginated List', function () {
         const startTime = Date.now();
         
         const res = http.get(
             `${BASE_URL}/api-test/v1/backoffice/users?per_page=15`,
-            {
-                headers: getHeaders,
-                jar: jar,
-                tags: { type: 'get_users_list' },
-            }
+            { headers: getHeaders, jar: jar, tags: { type: 'get_users_list' } }
         );
         
         getUsersListDuration.add(Date.now() - startTime);
@@ -268,25 +241,15 @@ export default function () {
         
         check(res, {
             'Get users status is 200': (r) => r.status === 200,
-            'Has pagination data structure': (r) => {
-                try {
-                    return r.json('data') !== undefined && r.json('meta') !== undefined;
-                } catch (e) {
-                    return false;
-                }
-            },
+            'Has pagination data structure': (r) => r.json('data') !== undefined && r.json('meta') !== undefined,
         });
         
-        if (!success) {
-            logError('GET_USERS_LIST', res, user);
-        }
+        if (!success) logError('GET_USERS_LIST', res, user);
     });
     
     sleep(1);
     
-    // ---------------------------------------------------------
-    // TEST 2: CREATE USER (Test PostgreSQL Write & Transaction)
-    // ---------------------------------------------------------
+    // TEST 2: CREATE USER
     let newUserId = null;
     
     group('User Module: Create New User', function () {
@@ -304,11 +267,7 @@ export default function () {
         const res = http.post(
             `${BASE_URL}/api-test/v1/backoffice/users`,
             createPayload,
-            {
-                headers: mutationHeaders,
-                jar: jar,
-                tags: { type: 'create_user' },
-            }
+            { headers: mutationHeaders, jar: jar, tags: { type: 'create_user' } }
         );
         
         createUserDuration.add(Date.now() - startTime);
@@ -318,13 +277,7 @@ export default function () {
         
         check(res, {
             'Create user status is 201': (r) => r.status === 201,
-            'Created user has ID': (r) => {
-                try {
-                    return r.json('data.id') !== undefined;
-                } catch (e) {
-                    return false;
-                }
-            },
+            'Created user has ID': (r) => r.json('data.id') !== undefined,
         });
         
         if (success) {
@@ -337,21 +290,14 @@ export default function () {
     
     sleep(1);
     
-    // Jalankan Test 3 & 4 hanya jika Test 2 berhasil
     if (newUserId) {
-        // ---------------------------------------------------------
-        // TEST 3: GET USER PROFILE (Test Redis Cache)
-        // ---------------------------------------------------------
+        // TEST 3: GET USER PROFILE
         group('User Module: Get Profile', function () {
             const startTime = Date.now();
             
             const res = http.get(
                 `${BASE_URL}/api-test/v1/backoffice/users/${newUserId}`,
-                {
-                    headers: getHeaders,
-                    jar: jar,
-                    tags: { type: 'get_user_profile' },
-                }
+                { headers: getHeaders, jar: jar, tags: { type: 'get_user_profile' } }
             );
             
             getProfileDuration.add(Date.now() - startTime);
@@ -361,36 +307,22 @@ export default function () {
             
             check(res, {
                 'Get profile status is 200': (r) => r.status === 200,
-                'Profile ID matches': (r) => {
-                    try {
-                        return r.json('data.id') === newUserId;
-                    } catch (e) {
-                        return false;
-                    }
-                },
+                'Profile ID matches': (r) => r.json('data.id') === newUserId,
             });
             
-            if (!success) {
-                logError('GET_PROFILE', res, user);
-            }
+            if (!success) logError('GET_PROFILE', res, user);
         });
         
         sleep(1);
         
-        // ---------------------------------------------------------
-        // TEST 4: DEACTIVATE USER (Test Logic Guard & Data Integrity)
-        // ---------------------------------------------------------
+        // TEST 4: DEACTIVATE USER
         group('User Module: Deactivate User', function () {
             const startTime = Date.now();
             
             const res = http.patch(
                 `${BASE_URL}/api-test/v1/backoffice/users/${newUserId}/deactivate`,
                 null,
-                {
-                    headers: mutationHeaders,
-                    jar: jar,
-                    tags: { type: 'deactivate_user' },
-                }
+                { headers: mutationHeaders, jar: jar, tags: { type: 'deactivate_user' } }
             );
             
             deactivateDuration.add(Date.now() - startTime);
@@ -400,39 +332,49 @@ export default function () {
             
             check(res, {
                 'Deactivate status is 200': (r) => r.status === 200,
-                'Success message received': (r) => {
-                    try {
-                        return r.json('message') === 'User has been deactivated successfully.';
-                    } catch (e) {
-                        return false;
-                    }
-                },
+                'Success message received': (r) => r.json('message') === 'User has been deactivated successfully.',
             });
             
-            if (success) {
-                totalUsersDeactivated.add(1);
-            } else {
-                logError('DEACTIVATE_USER', res, user);
-            }
+            if (success) totalUsersDeactivated.add(1);
+            else logError('DEACTIVATE_USER', res, user);
+        });
+        
+        sleep(1);
+        
+        // TEST 5: ACTIVATE USER
+        group('User Module: Activate User', function () {
+            const startTime = Date.now();
+            
+            const res = http.patch(
+                `${BASE_URL}/api-test/v1/backoffice/users/${newUserId}/activate`,
+                null,
+                { headers: mutationHeaders, jar: jar, tags: { type: 'activate_user' } }
+            );
+            
+            activateDuration.add(Date.now() - startTime);
+            
+            const success = res.status === 200;
+            activateSuccessRate.add(success);
+            
+            check(res, {
+                'Activate status is 200': (r) => r.status === 200,
+                'Success message received': (r) => r.json('message') === 'User has been activated successfully.',
+            });
+            
+            if (success) totalUsersActivated.add(1);
+            else logError('ACTIVATE_USER', res, user);
         });
         
         sleep(1);
     }
 }
 
-// =========================================================================
-// 6. SETUP & TEARDOWN FUNCTIONS
-// =========================================================================
 export function setup() {
     console.log('=== User Module Load Test Setup ===');
     console.log(`Base URL: ${BASE_URL}`);
-    console.log(`Frontend URL: ${FRONTEND_URL}`);
     console.log(`Total Users: ${users.length}`);
-    console.log(`Target VUs: 50`);
-    console.log(`Test Duration: 1m 40s`);
     console.log('===================================');
     
-    // Verify connectivity
     try {
         const healthCheck = http.get(`${BASE_URL}/sanctum/csrf-cookie`, {
             headers: getBaseHeaders(),
@@ -442,20 +384,11 @@ export function setup() {
         console.error(`Cannot connect to ${BASE_URL}: ${e.message}`);
     }
     
-    return {
-        startTime: new Date().toISOString(),
-        config: {
-            baseUrl: BASE_URL,
-            frontendUrl: FRONTEND_URL,
-            userCount: users.length,
-        },
-    };
+    return { startTime: new Date().toISOString() };
 }
 
 export function teardown(data) {
     console.log('\n=== User Module Load Test Summary ===');
-    console.log(`Start Time: ${data.startTime}`);
     console.log(`End Time: ${new Date().toISOString()}`);
-    console.log(`Total Users: ${data.config.userCount}`);
     console.log('=====================================');
 }
