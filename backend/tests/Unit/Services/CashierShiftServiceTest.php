@@ -14,48 +14,6 @@ use Tests\TestCase;
 
 uses(TestCase::class);
 
-// Helper function to access protected methods
-if (!function_exists('callProtectedMethod')) {
-    function callProtectedMethod($object, string $methodName, array $parameters = [])
-    {
-        $reflection = new ReflectionClass($object);
-        $method = $reflection->getMethod($methodName);
-        $method->setAccessible(true);
-        
-        return $method->invokeArgs($object, $parameters);
-    }
-}
-
-if (!function_exists('mockUserWithPin')) {
-    function mockUserWithPin(string $pinCode) {
-        $user = Mockery::mock(App\Models\User::class);
-        $user->shouldReceive('getAttribute')
-            ->with('pin_code')
-            ->andReturn($pinCode)
-            ->byDefault();
-        return $user;
-    }
-}
-
-if (!function_exists('mockCashierShift')) {
-    function mockCashierShift(array $attributes = []) {
-        $shift = Mockery::mock(CashierShift::class);
-        
-        foreach ($attributes as $key => $value) {
-            $shift->shouldReceive('getAttribute')
-                ->with($key)
-                ->andReturn($value)
-                ->byDefault();
-        }
-        
-        $shift->shouldReceive('fresh')
-            ->andReturnSelf()
-            ->byDefault();
-        
-        return $shift;
-    }
-}
-
 beforeEach(function () {
     // Mock untuk CashierShiftService
     $this->cashierShiftRepositoryMock = Mockery::mock(CashierShiftRepositoryInterface::class);

@@ -13,16 +13,6 @@ use Tests\TestCase;
 // Use Laravel's TestCase for facade support
 uses(TestCase::class);
 
-// Helper function to access protected methods
-function callProtectedMethod($object, string $methodName, array $parameters = [])
-{
-    $reflection = new ReflectionClass($object);
-    $method = $reflection->getMethod($methodName);
-    $method->setAccessible(true);
-    
-    return $method->invokeArgs($object, $parameters);
-}
-
 // Setup before each test
 beforeEach(function () {
     $this->shiftRepositoryMock = Mockery::mock(ShiftRepositoryInterface::class);
