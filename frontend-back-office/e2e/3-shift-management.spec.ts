@@ -25,8 +25,8 @@ test.describe('Alur Manajemen Shift (Shift Management E2E - Full Journey)', () =
       await page.click('button[type="submit"]');
       
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
-      await page.goto('/backoffice/shifts');
-      await expect(page).toHaveURL(/\/backoffice\/shifts/);
+      await page.goto('/shifts');
+      await expect(page).toHaveURL(/\/shifts/);
       
       await expect(page.locator('table')).toBeVisible();
     });
@@ -265,15 +265,15 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
     });
 
     test('Manager dapat mengakses Shift Management', async ({ page }) => {
-      await page.goto('/backoffice/shifts');
+      await page.goto('/shifts');
       
-      await expect(page).toHaveURL(/\/backoffice\/shifts/);
+      await expect(page).toHaveURL(/\/shifts/);
       await expect(page.locator('h1')).toContainText('Shift Management');
       await expect(page.locator('table')).toBeVisible();
     });
 
     test('Manager dapat melihat dan memfilter Cashier Shifts', async ({ page }) => {
-      await page.goto('/backoffice/shifts');
+      await page.goto('/shifts');
       
       await page.click('button:has-text("Cashier Shifts")');
       
@@ -287,7 +287,7 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
     });
 
     test('Manager dapat membuka Force Close modal', async ({ page }) => {
-      await page.goto('/backoffice/shifts');
+      await page.goto('/shifts');
       
       await page.click('button:has-text("Cashier Shifts")');
       
@@ -341,7 +341,7 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
       
       // Coba akses shift management
-      await page.goto('/backoffice/shifts');
+      await page.goto('/shifts');
       
       // Redirect ke dashboard karena tidak punya akses
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });

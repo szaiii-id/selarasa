@@ -38,7 +38,7 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/backoffice/shifts',
+    path: '/shifts',
     name: 'ShiftManagement',
     component: () => import('../pages/shift/ShiftManagementPage.vue'), 
     meta: { 
