@@ -104,4 +104,15 @@ class CashierShiftRepository implements CashierShiftRepositoryInterface
     {
         CashierShiftHandover::create($data);
     }
+
+    /**
+     * Find an open shift by its ID and lock it for update.
+     *
+     * @param int $id
+     * @return CashierShift|null
+     */
+    public function findOpenShiftByIdWithLock(int $id): ?CashierShift
+    {
+        return CashierShift::where('id', $id)->lockForUpdate()->first();
+    }
 }
