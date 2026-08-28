@@ -4,11 +4,22 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    // Clear rate limiter untuk memastikan test terisolasi
+    RateLimiter::clear('127.0.0.1');
+});
+
+afterEach(function () {
+    // Cleanup rate limiter setelah setiap test
+    RateLimiter::clear('127.0.0.1');
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -32,6 +43,17 @@ it('successfully logs out an authenticated user and returns correct JSON schema 
         ]);
 });
 
+it('returns correct content type header for logout response', function () {
+    $user = User::factory()->create([
+        'is_active' => true,
+    ]);
+
+    $response = $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/auth/logout');
+
+    $response->assertHeader('Content-Type', 'application/json');
+});
+
 /*
 |--------------------------------------------------------------------------
 | 2. Security & State Transition Testing
@@ -46,26 +68,58 @@ it('rejects unauthenticated logout requests with 401 Unauthorized (Security Test
         ]);
 });
 
+it('rejects logout for deactivated users with 403 Forbidden', function () {
+    $inactiveUser = User::factory()->create([
+        'is_active' => false,
+    ]);
+
+    $response = $this->actingAs($inactiveUser, 'sanctum')
+        ->postJson('/api/v1/auth/logout');
+
+    $response->assertStatus(Response::HTTP_FORBIDDEN)
+        ->assertJson([
+            'message' => 'Your account has been deactivated.',
+        ]);
+});
+
 it('invalidates user session and prevents subsequent access to protected routes (State Transition Test)', function () {
+    // Create user
     $user = User::factory()->create([
+        'username' => 'logout_test_user',
+        'password' => Hash::make('secret123'),
+        'role' => 'admin',
         'is_active' => true,
     ]);
 
-    // Ensure the user can access a protected route initially
-    $this->actingAs($user, 'sanctum')
-        ->getJson('/api/v1/auth/me')
+    // Clear rate limiter
+    RateLimiter::clear('127.0.0.1');
+
+    // Login via endpoint (creates real session)
+    $this->postJson('/api/v1/backoffice/auth/login', [
+        'username' => 'logout_test_user',
+        'password' => 'secret123',
+    ])->assertStatus(Response::HTTP_OK);
+
+    // Verify authenticated
+    $this->assertAuthenticated();
+
+    // Access protected route
+    $this->getJson('/api/v1/auth/me')
         ->assertStatus(Response::HTTP_OK);
 
-    // Perform logout request
+    // Perform logout
     $this->postJson('/api/v1/auth/logout')
         ->assertStatus(Response::HTTP_OK);
 
-    // Clear test application guard memory to reflect invalidated server session
+    // Clear auth guards
     $this->app['auth']->forgetGuards();
 
-    // Attempting to access protected resource after logout must fail
+    // Accessing protected resource after logout must fail
     $this->getJson('/api/v1/auth/me')
-        ->assertStatus(Response::HTTP_UNAUTHORIZED);
+        ->assertStatus(Response::HTTP_UNAUTHORIZED)
+        ->assertJson([
+            'message' => 'Unauthenticated.',
+        ]);
 });
 
 /*
@@ -83,11 +137,54 @@ it('prevents reuse of an already invalidated session for subsequent logout reque
         ->postJson('/api/v1/auth/logout')
         ->assertStatus(Response::HTTP_OK);
 
+    // Clear auth guards to simulate session invalidation
     $this->app['auth']->forgetGuards();
 
     // Second logout attempt must be rejected
     $this->postJson('/api/v1/auth/logout')
-        ->assertStatus(Response::HTTP_UNAUTHORIZED);
+        ->assertStatus(Response::HTTP_UNAUTHORIZED)
+        ->assertJson([
+            'message' => 'Unauthenticated.',
+        ]);
+});
+
+it('allows logout and re-login with same user (Session Regeneration Test)', function () {
+    // Create user
+    $user = User::factory()->create([
+        'username' => 'relogin_user',
+        'password' => Hash::make('secret123'),
+        'role' => 'admin',
+        'is_active' => true,
+    ]);
+
+    // Clear rate limiter
+    RateLimiter::clear('127.0.0.1');
+
+    // First login
+    $this->postJson('/api/v1/backoffice/auth/login', [
+        'username' => 'relogin_user',
+        'password' => 'secret123',
+    ])->assertStatus(Response::HTTP_OK);
+
+    // First logout
+    $this->postJson('/api/v1/auth/logout')
+        ->assertStatus(Response::HTTP_OK);
+
+    // Reset auth manager to default state
+    $this->app['auth']->forgetGuards();
+    $this->app['auth']->shouldUse('web');
+
+    // Clear rate limiter for second login
+    RateLimiter::clear('127.0.0.1');
+
+    // Second login (should work)
+    $this->postJson('/api/v1/backoffice/auth/login', [
+        'username' => 'relogin_user',
+        'password' => 'secret123',
+    ])->assertStatus(Response::HTTP_OK);
+
+    // Verify authenticated again
+    $this->assertAuthenticated();
 });
 
 /*
@@ -100,8 +197,8 @@ it('throttles excessive logout requests exceeding API rate limit (Throttle Test)
         'is_active' => true,
     ]);
 
-    // Bersihkan rate limiter berdasarkan ID user (sesuai throttle:api Sanctum)
-    $throttleKey = Str::transliterate((string) $user->id);
+    // Clear rate limiter based on user ID
+    $throttleKey = (string) $user->id;
     RateLimiter::clear($throttleKey);
 
     // Simulate exhausting the 60 requests/minute throttle threshold
@@ -109,9 +206,53 @@ it('throttles excessive logout requests exceeding API rate limit (Throttle Test)
         $this->actingAs($user, 'sanctum')->postJson('/api/v1/auth/logout');
     }
 
-    // The 61st request must be blocked by the Laravel Rate Limiter
+    // The 61st request must be blocked
     $response = $this->actingAs($user, 'sanctum')
         ->postJson('/api/v1/auth/logout');
 
-    $response->assertStatus(Response::HTTP_TOO_MANY_REQUESTS);
+    $response->assertStatus(Response::HTTP_TOO_MANY_REQUESTS)
+        ->assertJson([
+            'message' => 'Too Many Attempts.',
+        ]);
+});
+
+/*
+|--------------------------------------------------------------------------
+| 5. Edge Cases & Additional Tests
+|--------------------------------------------------------------------------
+*/
+it('handles logout request with invalid token', function () {
+    $response = $this->withHeaders([
+        'Authorization' => 'Bearer invalid_token_123',
+    ])->postJson('/api/v1/auth/logout');
+
+    $response->assertStatus(Response::HTTP_UNAUTHORIZED);
+});
+
+it('successfully logs out and clears last session data', function () {
+    $user = User::factory()->create([
+        'username' => 'session_clear_user',
+        'password' => Hash::make('secret123'),
+        'role' => 'admin',
+        'is_active' => true,
+    ]);
+
+    // Login
+    $this->postJson('/api/v1/backoffice/auth/login', [
+        'username' => 'session_clear_user',
+        'password' => 'secret123',
+    ])->assertStatus(Response::HTTP_OK);
+
+    // Verify session exists
+    $this->assertAuthenticated();
+
+    // Logout
+    $this->postJson('/api/v1/auth/logout')
+        ->assertStatus(Response::HTTP_OK);
+
+    // Clear guards
+    $this->app['auth']->forgetGuards();
+
+    // Verify no authenticated user
+    $this->assertNull(auth()->user());
 });

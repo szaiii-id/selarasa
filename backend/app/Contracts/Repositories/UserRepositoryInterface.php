@@ -34,6 +34,14 @@ interface UserRepositoryInterface
      */
     public function findByUsername(string $username): ?User;
 
+        /**
+     * Get user details with aggregated statistics (Ready for future relations).
+     *
+     * @param string $id
+     * @return User|null
+     */
+    public function findWithDetails(string $id): ?User;
+
     /**
      * Create a new user.
      * NOTE: Password hashing must be handled by the Service layer prior to calling this method.
@@ -78,4 +86,12 @@ interface UserRepositoryInterface
      * @return int
      */
     public function countActiveByRole(string $role): int;
+
+    /**
+     * Activate a deactivated user.
+     *
+     * @param User $user
+     * @return bool
+     */
+    public function activate(User $user): bool;
 }

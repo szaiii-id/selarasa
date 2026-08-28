@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\Shift;
 use App\Models\User;
+use App\Observers\ShiftObserver;
 use App\Observers\UserObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -28,6 +30,7 @@ class AppServiceProvider extends ServiceProvider
          * Register model observers.
          */
         User::observe(UserObserver::class);
+        Shift::observe(ShiftObserver::class);
 
         /**
          * Configure application rate limiters.

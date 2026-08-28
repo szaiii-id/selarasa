@@ -35,8 +35,9 @@ class UserRepository implements UserRepositoryInterface
             }
         }
 
-        if (isset($filters['is_active'])) {
-            $query->where('is_active', $filters['is_active']);
+        if (isset($filters['is_active']) && $filters['is_active'] !== '') {
+            $isActiveBool = filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN);
+            $query->where('is_active', $isActiveBool);
         }
 
         return $query->latest()->paginate($perPage);
@@ -62,6 +63,19 @@ class UserRepository implements UserRepositoryInterface
     public function findByUsername(string $username): ?User
     {
         return User::where('username', $username)->first();    
+    }
+
+    /**
+     * Get user details with aggregated statistics (Ready for future relations).
+     *
+     * @param string $id
+     * @return User|null
+     */
+    public function findWithDetails(string $id): ?User
+    {
+        $query = User::query();
+
+        return $query->find($id);
     }
 
     /**
@@ -96,6 +110,17 @@ class UserRepository implements UserRepositoryInterface
     public function deactivate(User $user): bool
     {
         return $user->update(['is_active' => false]);
+    }
+
+    /**
+     * Activate a deactivated user.
+     *
+     * @param User $user
+     * @return bool
+     */
+    public function activate(User $user): bool
+    {
+        return $user->update(['is_active' => true]);
     }
 
     /**

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1\BackOffice\User;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
+use App\Http\Resources\UserDetailResource;
 use App\Http\Resources\UserResource;
 use App\Services\UserService;
 use Illuminate\Http\JsonResponse;
@@ -33,8 +34,9 @@ class UserController extends Controller
     {
         $perPage = (int) $request->query('per_page', 15);
         
-        // Exclude pagination parameters to pass the rest as filters
-        $filters = $request->except(['page', 'per_page']);
+        $filters = collect($request->except(['page', 'per_page']))
+            ->filter(fn ($value) => $value !== null && $value !== '')
+            ->toArray();
 
         $users = $this->userService->getPaginatedUsers($perPage, $filters);
 
@@ -51,6 +53,8 @@ class UserController extends Controller
     {
         $user = $this->userService->createUser($request->validated());
 
+        $user->makeVisible('pin_code');
+        
         return response()->json([
             'message' => 'User created successfully.',
             'data'    => UserResource::make($user)
@@ -65,11 +69,11 @@ class UserController extends Controller
      */
     public function show(string $id): JsonResponse
     {
-        $user = $this->userService->getUserById($id);
+        $user = $this->userService->getUserDetailsForDashboard($id);
 
         return response()->json([
             'message' => 'User retrieved successfully.',
-            'data'    => UserResource::make($user)
+            'data'    => UserDetailResource::make($user)
         ], Response::HTTP_OK);
     }
 
@@ -83,6 +87,10 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, string $id): JsonResponse
     {
         $user = $this->userService->updateUser($id, $request->validated());
+
+        if ($request->filled('pin_code')) {
+            $user->makeVisible('pin_code');
+        }
 
         return response()->json([
             'message' => 'User updated successfully.',
@@ -102,6 +110,21 @@ class UserController extends Controller
 
         return response()->json([
             'message' => 'User has been deactivated successfully.'
+        ], Response::HTTP_OK);
+    }
+
+    /**
+     * Activate the specified user.
+     *
+     * @param string $id
+     * @return JsonResponse
+     */
+    public function activate(string $id): JsonResponse
+    {
+        $this->userService->activateUser($id);
+
+        return response()->json([
+            'message' => 'User has been activated successfully.'
         ], Response::HTTP_OK);
     }
 

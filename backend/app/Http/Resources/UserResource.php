@@ -21,6 +21,10 @@ class UserResource extends JsonResource
             'role' => $this->role,
             'is_active' => $this->is_active,
             'joined_at' => $this->created_at ? $this->created_at->format('Y-m-d') : null,
+            'pin_code'  => $this->when(
+                !in_array('pin_code', $this->resource->getHidden()), 
+                $this->pin_code
+            ),
         ];
     }
 }

@@ -1,14 +1,14 @@
 import { mount } from '@vue/test-utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createTestingPinia } from '@pinia/testing';
-import Dashboard from '@/pages/Dashboard.vue'; // Sesuaikan lokasi file
+import Dashboard from '@/pages/Dashboard.vue';
 import { useAuthStore } from '@/stores/authStore';
 
-// 1. Mock vue-router dengan importOriginal agar createRouter tidak hilang
+// 1. Mocking vue-router
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>();
   return {
-    ...actual, // Kembalikan semua fungsi asli seperti createRouter, createWebHistory
+    ...actual,
     useRouter: () => ({
       push: vi.fn(),
       replace: vi.fn(),
@@ -22,42 +22,55 @@ describe('Dashboard.vue (UI Integration & State Transition)', () => {
   });
 
   // =========================================================================
-  // 1. DATA INTEGRITY & STATE TRANSITION (Render Awal & Aksi Pengguna)
+  // 1. DATA INTEGRITY & STATE TRANSITION (Render Awal & Integrasi Store)
   // =========================================================================
   describe('State Transition & UI Integrity', () => {
     
-    it('merender antarmuka Dashboard dengan integritas teks yang benar (Contract Data)', () => {
+    it('merender antarmuka Dashboard dengan integritas teks, nama user, dan peran (role) dari Pinia Store', () => {
+      const wrapper = mount(Dashboard, {
+        global: {
+          plugins: [createTestingPinia({
+            initialState: {
+              auth: {
+                user: { name: 'Budi Tester', role: 'admin' }
+              }
+            }
+          })],
+          stubs: {
+            // Stub Layout dan komponen router internal agar tes bersih dari elemen luar
+            BackofficeLayout: { template: '<div><slot /></div>' },
+            RouterLink: true,
+          },
+        },
+      });
+
+      // Memastikan judul utama dirender
+      expect(wrapper.find('h1').text()).toBe('Dashboard');
+      
+      // Memastikan nama pengguna dan peran yang aktif tampil secara dinamis dari store
+      const pageText = wrapper.text();
+      expect(pageText).toContain('Budi Tester');
+      expect(pageText).toContain('admin');
+      expect(pageText).toContain('SelaRasa Back Office');
+    });
+
+    it('merender elemen widget dan daftar aktivitas gulir (Scroll Test) dengan benar', () => {
       const wrapper = mount(Dashboard, {
         global: {
           plugins: [createTestingPinia()],
+          stubs: {
+            BackofficeLayout: { template: '<div><slot /></div>' },
+            RouterLink: true,
+          },
         },
       });
 
-      // Memastikan elemen UI (Typography) dirender sesuai desain sistem
-      expect(wrapper.find('h1').text()).toBe('Dashboard');
-      expect(wrapper.text()).toContain('Welcome to SelaRasa Back Office!');
-    });
-
-    it('memicu transisi pemutusan sesi (logout) ke sistem AuthStore saat tombol Sign Out diklik', async () => {
-      const wrapper = mount(Dashboard, {
-        global: {
-          // stubActions: true memastikan kita memantau pemanggilan fungsi tanpa menembak API beneran
-          plugins: [createTestingPinia({ stubActions: true })],
-        },
-      });
-
-      const store = useAuthStore();
-      const logoutBtn = wrapper.find('button');
+      // Memastikan widget transaksi hari ini muncul
+      expect(wrapper.text()).toContain('Total Transaksi Hari Ini');
       
-      // Validasi tombol yang tepat ditemukan
-      expect(logoutBtn.text()).toBe('Sign Out');
-      expect(logoutBtn.classes()).toContain('bg-error'); // Validasi kelas warna bahaya
-      
-      // Eksekusi klik tombol
-      await logoutBtn.trigger('click');
-
-      // Memastikan interaksi UI berhasil diteruskan ke Store Management
-      expect(store.logout).toHaveBeenCalledTimes(1);
+      // Memastikan loop 20 data dummy aktivitas terbaru berhasil dirender di DOM
+      expect(wrapper.text()).toContain('Data Dummy Transaksi ke-1');
+      expect(wrapper.text()).toContain('Data Dummy Transaksi ke-20');
     });
 
   });
