@@ -247,6 +247,42 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
       
       await expect(page.locator('button:has-text("Add New Shift")')).toBeVisible();
     });
+
+    test('Admin berhasil melakukan Force Close dan melihat badge audit trail', async ({ page }) => {
+      await page.click('button:has-text("Cashier Shifts")');
+      
+      // Filter status yang 'open' saja
+      await page.selectOption('select', 'open');
+      await page.waitForTimeout(1000);
+      
+      const forceCloseButton = page.locator('button:has-text("Force Close")').first();
+      
+      if (await forceCloseButton.isVisible()) {
+        await forceCloseButton.click();
+        
+        await expect(page.locator('h3:has-text("Force Close Shift")')).toBeVisible();
+        
+        // Isi form dengan data yang valid
+        await page.fill('input[placeholder="0"]', '500000'); // Expected balance
+        await page.fill('textarea', 'Skenario E2E: Force close karena kasir tidak merespon'); // Notes
+        
+        // Submit
+        await page.click('button:has-text("Force Close Shift")');
+        
+        // Verifikasi Modal Sukses
+        await expect(page.locator('h3:has-text("Shift Force Closed")')).toBeVisible();
+        await page.click('button:has-text("Got it, thanks!")');
+        
+        // Cek apakah badge audit trail muncul di UI (closed_by_user)
+        // Kita menggunakan selector atribut title yang sudah kita buat di CashierShiftTable.vue
+        const auditBadge = page.locator('span[title="Force Closed by Manager"]').first();
+        await expect(auditBadge).toBeVisible();
+        
+      } else {
+        // Jika tidak ada shift yang open di database testing, skip dengan aman
+        test.skip();
+      }
+    });
   });
 
   test.describe('B. MANAGER ROLE JOURNEY (RBAC & UI Protection)', () => {

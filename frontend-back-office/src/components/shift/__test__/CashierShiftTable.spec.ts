@@ -350,5 +350,20 @@ describe('CashierShiftTable Component', () => {
       expect(wrapper.text()).toContain('Showing page 1');
       expect(wrapper.text()).toContain('of 5');
     });
+
+    it('[Corner Case] Menampilkan badge "Force Closed by Manager" jika ada closed_by_user', () => {
+      const mockForceClosedShift = {
+        ...mockClosedShift,
+        closed_by_user: {
+          id: 'uuid-admin',
+          name: 'Super Admin',
+          username: 'admin'
+        }
+      };
+      
+      const wrapper = createWrapper({ shifts: [mockForceClosedShift] });
+      
+      expect(wrapper.text()).toContain('by Super Admin');
+    });
   });
 });

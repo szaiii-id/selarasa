@@ -38,6 +38,11 @@ export interface CashierShift {
         name: string;
         username: string;
     };
+    closed_by_user?: { 
+        id: string;
+        name: string;
+        username: string;
+    };
 }
 
 /**

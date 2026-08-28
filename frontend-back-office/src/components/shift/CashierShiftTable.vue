@@ -207,13 +207,21 @@ const changePage = (page: number) => {
                 <span class="w-1.5 h-1.5 rounded-full bg-warning mr-1.5"></span>
                 Open
               </span>
-              <span 
-                v-else 
-                class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-disabled/30 text-text-secondary border border-disabled/40"
-              >
-                <span class="w-1.5 h-1.5 rounded-full bg-text-secondary mr-1.5"></span>
-                Closed
-              </span>
+              
+              <div v-else class="flex flex-col items-start gap-1.5">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-disabled/30 text-text-secondary border border-disabled/40">
+                  <span class="w-1.5 h-1.5 rounded-full bg-text-secondary mr-1.5"></span>
+                  Closed
+                </span>
+                
+                <span 
+                  v-if="shift.closed_by_user" 
+                  class="inline-flex items-center text-[10px] font-medium text-error bg-error/10 px-1.5 py-0.5 rounded shadow-sm border border-error/20"
+                  title="Force Closed by Manager"
+                >
+                  by {{ shift.closed_by_user.name }}
+                </span>
+              </div>
             </td>
 
             <!-- Started At -->
