@@ -96,7 +96,6 @@ class CashierShiftService
      */
     public function closeShift(int $shiftSessionId, string $userId, array $data): CashierShift
     {
-        // Pengecekan otorisasi dan PIN dilakukan di luar lock agar cepat
         $this->getFreshActiveShift($shiftSessionId, $userId);
         $this->verifyUserPin($userId, $data['pin_code']);
 
@@ -106,12 +105,10 @@ class CashierShiftService
 
         try {
             return DB::transaction(function () use ($shiftSessionId, $userId, $data, $closingBalance, $expectedBalance, $variance) {
-                // PESSIMISTIC LOCK: Mencegah Race Condition saat double-click
-                $cashierShift = CashierShift::where('id', $shiftSessionId)->lockForUpdate()->first();
+                $cashierShift = $this->cashierShiftRepository->findOpenShiftByIdWithLock($shiftSessionId);
 
-                // Verifikasi ulang di dalam lock
-                if (!$cashierShift || $cashierShift->status !== CashierShift::STATUS_OPEN) {
-                    throw new ConflictHttpException('Shift session is already closed or processed.');
+                if (!$cashierShift || $cashierShift->status !== CashierShift::STATUS_OPEN || $cashierShift->user_id !== $userId) {
+                    throw new ConflictHttpException('Shift session is already closed, processed, or no longer belongs to you.');
                 }
 
                 $updatePayload = [
@@ -149,22 +146,18 @@ class CashierShiftService
             throw new ConflictHttpException('Cannot hand over a shift to yourself.');
         }
 
-        // Verifikasi PIN pemberi
         $this->verifyUserPin($fromUserId, $data['pin_code']);
 
-        // Verifikasi PIN penerima — memastikan penerima benar-benar setuju mengambil alih
         $this->verifyUserPin($data['to_user_id'], $data['to_user_pin']);
 
         try {
             return DB::transaction(function () use ($shiftSessionId, $fromUserId, $data) {
-                // PESSIMISTIC LOCK: Mencegah operasi double-click saat handover
-                $cashierShift = CashierShift::where('id', $shiftSessionId)->lockForUpdate()->first();
+                $cashierShift = $this->cashierShiftRepository->findOpenShiftByIdWithLock($shiftSessionId);
 
                 if (!$cashierShift || $cashierShift->status !== CashierShift::STATUS_OPEN || $cashierShift->user_id !== $fromUserId) {
                     throw new ConflictHttpException('Handover failed: Shift is no longer active or already processed.');
                 }
 
-                // Guard: penerima tidak boleh sudah punya shift aktif lain
                 $existingShiftForReceiver = $this->getActiveShiftForUser($data['to_user_id']);
                 if ($existingShiftForReceiver) {
                     throw new ConflictHttpException('The selected cashier already has an active shift session and cannot receive a handover.');
@@ -178,7 +171,6 @@ class CashierShiftService
                     'notes'            => $data['notes'] ?? null,
                 ]);
 
-                // Continuity: shift TETAP open, cuma pindah kepemilikan
                 $this->cashierShiftRepository->update($cashierShift, [
                     'user_id' => $data['to_user_id'],
                 ]);
@@ -204,8 +196,7 @@ class CashierShiftService
     {
         try {
             return DB::transaction(function () use ($shiftSessionId, $managerId, $data) {
-                // PESSIMISTIC LOCK
-                $cashierShift = CashierShift::where('id', $shiftSessionId)->lockForUpdate()->first();
+                $cashierShift = $this->cashierShiftRepository->findOpenShiftByIdWithLock($shiftSessionId);
 
                 if (!$cashierShift || $cashierShift->status !== CashierShift::STATUS_OPEN) {
                     throw new ConflictHttpException('Shift session is already closed or not found.');

@@ -37,6 +37,7 @@ class CashierShiftResource extends JsonResource
             
             'user'  => new UserResource($this->whenLoaded('user')),
             'shift' => new ShiftResource($this->whenLoaded('shift')),
+            'closed_by_user' => new UserResource($this->whenLoaded('closedByUser')),
         ];
     }
 }

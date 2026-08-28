@@ -56,4 +56,12 @@ interface CashierShiftRepositoryInterface
      * @return void
      */
     public function createHandoverRecord(array $data): void;
+
+    /**
+     * Find an open shift by its ID and lock it for update.
+     *
+     * @param int $id
+     * @return CashierShift|null
+     */
+    public function findOpenShiftByIdWithLock(int $id): ?CashierShift;
 }

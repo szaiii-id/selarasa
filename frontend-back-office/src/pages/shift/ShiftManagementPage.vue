@@ -90,7 +90,6 @@ const executeConfirmAction = async () => {
       title: 'Shift Deleted', 
       message: `The master shift "${shift.name}" has been permanently deleted.` 
     });
-    loadMasterShifts(); 
   }
 };
 
@@ -112,7 +111,6 @@ const handleForceCloseSubmit = async (payload: ForceClosePayload) => {
       title: 'Shift Force Closed', 
       message: `The shift for "${shift.user?.name || 'cashier'}" has been forcefully closed.` 
     });
-    loadCashierShifts();
   }
 };
 
