@@ -14,7 +14,7 @@ class HandoverShiftRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'to_user_id'      => ['required', 'uuid', 'exists:users,id', 'different:pin_code'],
+            'to_user_id'      => ['required', 'uuid', 'exists:users,id',],
             'to_user_pin'     => ['required', 'string', 'size:6', 'regex:/^[0-9]+$/'],
             'pin_code'        => ['required', 'string', 'size:6', 'regex:/^[0-9]+$/'], 
             'amount_counted'  => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
