@@ -66,7 +66,7 @@ const authStore = useAuthStore();
 
     <router-link
       v-if="authStore.user?.role === 'admin' || authStore.user?.role === 'manager'"
-      to="/backoffice/shifts"
+      to="/shifts"
       custom
       v-slot="{ isActive, navigate, href }"
     >
