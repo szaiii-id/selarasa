@@ -9,6 +9,7 @@ import MasterShiftTable from '@/components/shift/MasterShiftTable.vue';
 import CashierShiftTable from '@/components/shift/CashierShiftTable.vue';
 import MasterShiftFormModal from '@/components/shift/MasterShiftFormModal.vue';
 import ForceCloseModal from '@/components/shift/ForceCloseModal.vue';
+import CashierShiftDetailModal from '@/components/shift/CashierShiftDetailModal.vue';
 import SuccessModal from '@/components/common/SuccessModal.vue';
 import ConfirmModal from '@/components/common/ConfirmModal.vue';
 
@@ -20,6 +21,7 @@ const formModal = useModal<MasterShift | null>(null);
 const successModal = useModal({ title: '', message: '' });
 const confirmModal = useModal({ type: 'delete' as 'delete', shift: null as MasterShift | null });
 const forceCloseModal = useModal<CashierShift | null>(null);
+const detailModal = useModal<CashierShift | null>(null);
 
 const confirmTitle = computed(() => 'Delete Master Shift?');
 
@@ -97,6 +99,10 @@ const handleForceClose = (shift: CashierShift) => {
   shiftStore.validationErrors = {};
   shiftStore.errorMessage = null;
   forceCloseModal.open(shift);
+};
+
+const handleViewShift = (shift: CashierShift) => {
+  detailModal.open(shift);
 };
 
 const handleForceCloseSubmit = async (payload: ForceClosePayload) => {
@@ -198,6 +204,7 @@ onMounted(() => {
           :is-loading="shiftStore.isLoading"
           :error-message="shiftStore.errorMessage"
           :pagination="shiftStore.pagination"
+          @view="handleViewShift"
           @force-close="handleForceClose"
           @retry="loadCashierShifts"
           @page-change="(page) => shiftStore.fetchCashierShifts({ page })"
@@ -223,6 +230,12 @@ onMounted(() => {
       :errors="shiftStore.validationErrors"
       @close="forceCloseModal.close()"
       @submit="handleForceCloseSubmit"
+    />
+
+    <CashierShiftDetailModal
+      :is-open="detailModal.isOpen.value"
+      :shift="detailModal.data.value"
+      @close="detailModal.close()"
     />
 
     <ConfirmModal
