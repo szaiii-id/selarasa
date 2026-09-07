@@ -46,7 +46,7 @@ class UserSeeder extends Seeder
                     'name'      => $userData['name'],
                     'username'  => $userData['username'],
                     'password'  => Hash::make('selarasa01'), 
-                    'pin_code'  => '123456',
+                    'pin_code'  => Hash::make('123456'),
                     'role'      => $userData['role'],
                     'is_active' => true,
                 ]);

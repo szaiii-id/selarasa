@@ -6,6 +6,7 @@ use App\Contracts\Repositories\UserRepositoryInterface;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 
 class UserRepository implements UserRepositoryInterface
 {
@@ -143,5 +144,20 @@ class UserRepository implements UserRepositoryInterface
     public function countActiveByRole(string $role): int
     {
         return User::where('role', $role)->where('is_active', true)->count();
+    }
+
+    /**
+     * Get all active cashiers for POS handover operations.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getActiveCashiers(): Collection
+    {
+        return User::query()
+            ->where('role', 'cashier')
+            ->where('is_active', true)
+            ->select(['id', 'name', 'username', 'role', 'is_active', 'created_at'])
+            ->orderBy('name', 'asc')
+            ->get();
     }
 }

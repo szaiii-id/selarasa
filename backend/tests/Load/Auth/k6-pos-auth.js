@@ -10,10 +10,12 @@ const loginSuccessRate = new Rate('login_success_rate');
 const logoutSuccessRate = new Rate('logout_success_rate');
 const meSuccessRate = new Rate('me_success_rate');
 const csrfSuccessRate = new Rate('csrf_success_rate');
+const pinSuccessRate = new Rate('pin_success_rate');
 const loginDuration = new Trend('login_duration', true);
 const logoutDuration = new Trend('logout_duration', true);
 const meDuration = new Trend('me_duration', true);
 const csrfDuration = new Trend('csrf_duration', true);
+const pinDuration = new Trend('pin_duration', true);
 const totalUsersLoggedIn = new Counter('total_users_logged_in');
 
 // =========================================================================
@@ -48,6 +50,11 @@ export const options = {
         'http_req_failed{type:pos_me}': ['rate<0.01'],
         'me_success_rate': ['rate>0.95'],
         
+        // PIN Verification thresholds
+        'http_req_duration{type:pos_pin_verify}': ['p(95)<500'],
+        'http_req_failed{type:pos_pin_verify}': ['rate<0.01'],
+        'pin_success_rate': ['rate>0.95'],
+        
         // POS Logout thresholds
         'http_req_duration{type:pos_logout}': ['p(95)<500'],
         'http_req_failed{type:pos_logout}': ['rate<0.01'],
@@ -62,15 +69,20 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:8001';
 const FRONTEND_URL = __ENV.FRONTEND_URL || 'http://localhost:5173';
 const USER_COUNT = parseInt(__ENV.USER_COUNT) || 30;
 const PASSWORD = __ENV.TEST_PASSWORD || 'password_testing_123';
+const TEST_PIN = __ENV.TEST_PIN || '123456';
+const USER_PREFIX = __ENV.USER_PREFIX || 'cashier_test'; // Sesuaikan dengan seeder
 
-// Reuse user_test_1..30 dari K6LoadTestSeeder
+// Reuse cashier_test_1..30 dari K6LoadTestSeeder
 const users = new SharedArray('pos users', function () {
     const count = parseInt(__ENV.USER_COUNT) || 30;
     const password = __ENV.TEST_PASSWORD || 'password_testing_123';
+    const pin = __ENV.TEST_PIN || '123456';
+    const prefix = __ENV.USER_PREFIX || 'cashier_test';
     
     return Array.from({ length: count }, (_, i) => ({
-        username: `user_test_${i + 1}`,
+        username: `${prefix}_${i + 1}`,
         password: password,
+        pin: pin,
     }));
 });
 
@@ -308,7 +320,62 @@ export default function () {
         sleep(Math.random() * 1.5 + 1);
         
         // ---------------------------------------------------------
-        // FASE 5: LOGOUT
+        // FASE 5: VERIFY PIN (POS SECURITY & LOCK SCREEN)
+        // ---------------------------------------------------------
+        group('POS Verify PIN', function () {
+            const pinPayload = JSON.stringify({
+                pin_code: user.pin,
+            });
+            
+            const pinStartTime = Date.now();
+            
+            let pinRes;
+            try {
+                pinRes = http.post(
+                    `${BASE_URL}/api-test/v1/pos/auth/verify-pin`,
+                    pinPayload,
+                    {
+                        headers: {
+                            ...authHeaders,
+                            'Content-Type': 'application/json',
+                        },
+                        jar: jar,
+                        tags: { type: 'pos_pin_verify' },
+                    }
+                );
+            } catch (e) {
+                console.error(`[VU ${__VU}] PIN verification request failed: ${e.message}`);
+                return;
+            }
+            
+            pinDuration.add(Date.now() - pinStartTime);
+            
+            const pinSuccessful = pinRes.status === 200;
+            pinSuccessRate.add(pinSuccessful);
+            
+            check(pinRes, {
+                'PIN verification status is 200': (r) => r.status === 200,
+                'PIN response has success true': (r) => {
+                    if (r.status !== 200) return false;
+                    try {
+                        const body = JSON.parse(r.body);
+                        return body.success === true;
+                    } catch (e) {
+                        return false;
+                    }
+                },
+            });
+            
+            if (!pinSuccessful) {
+                logError('PIN_VERIFY', pinRes, user);
+            }
+            
+            // Think time simulation
+            sleep(Math.random() * 1.5 + 1);
+        });
+        
+        // ---------------------------------------------------------
+        // FASE 6: LOGOUT
         // ---------------------------------------------------------
         const logoutStartTime = Date.now();
         
@@ -354,8 +421,10 @@ export function setup() {
     console.log(`Base URL: ${BASE_URL}`);
     console.log(`Frontend URL: ${FRONTEND_URL}`);
     console.log(`Total Users: ${users.length}`);
+    console.log(`User Prefix: ${USER_PREFIX}`);
     console.log(`Target VUs: 200`);
     console.log(`Test Duration: 3 minutes`);
+    console.log(`Test PIN: ${TEST_PIN}`);
     console.log('===========================');
     
     // Verify connectivity
@@ -375,6 +444,8 @@ export function setup() {
             baseUrl: BASE_URL,
             frontendUrl: FRONTEND_URL,
             userCount: users.length,
+            userPrefix: USER_PREFIX,
+            testPin: TEST_PIN,
         },
     };
 }
@@ -384,5 +455,7 @@ export function teardown(data) {
     console.log(`Start Time: ${data.startTime}`);
     console.log(`End Time: ${new Date().toISOString()}`);
     console.log(`Total Users: ${data.config.userCount}`);
+    console.log(`User Prefix: ${data.config.userPrefix}`);
+    console.log(`Test PIN: ${data.config.testPin}`);
     console.log('==============================');
 }
