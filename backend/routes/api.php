@@ -7,7 +7,9 @@ use App\Http\Controllers\Api\V1\BackOffice\Shift\ShiftController;
 use App\Http\Controllers\Api\V1\BackOffice\Shift\CashierShiftController as BackOfficeCashierShiftController;
 use App\Http\Controllers\Api\V1\BackOffice\User\UserController;
 use App\Http\Controllers\Api\V1\Pos\Auth\LoginController as PosLoginController;
+use App\Http\Controllers\Api\V1\Pos\Auth\VerifyPinController;
 use App\Http\Controllers\Api\V1\Pos\Shift\CashierShiftController;
+use App\Http\Controllers\Api\V1\Pos\Shift\ShiftController as PosShiftController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -109,6 +111,21 @@ Route::prefix('v1')->group(function () {
         ->prefix('pos')
         ->group(function () {
 
+
+        // ==========================================
+        // POS SECURITY & LOCK SCREEN
+        // ==========================================
+        Route::post('/auth/verify-pin', VerifyPinController::class)
+            ->middleware('throttle:pin-verification')
+            ->name('api.v1.pos.auth.verify-pin');
+
+
+        // ==========================================
+        // MASTER SHIFT (Read-Only untuk POS)
+        // ==========================================
+            Route::get('/master-shifts', [PosShiftController::class, 'active'])
+                ->name('api.v1.pos.master-shifts.active');
+
         /*
         |----------------------------------------------------------------------
         | CASHIER SHIFT SESSION MODULE
@@ -123,6 +140,13 @@ Route::prefix('v1')->group(function () {
             Route::post('/{id}/handover', [CashierShiftController::class, 'handover'])->name('handover');
             
         });
+
+
+        // ==========================================
+        // ACTIVE CASHIERS (For Shift Handover Dropdown)
+        // ==========================================
+        Route::get('/active-cashiers', [UserController::class, 'getActiveCashiers'])
+            ->name('api.v1.pos.active-cashiers');
 
     });
 

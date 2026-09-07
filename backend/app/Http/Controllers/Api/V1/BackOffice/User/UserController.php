@@ -140,4 +140,16 @@ class UserController extends Controller
 
         return response()->json(null, Response::HTTP_NO_CONTENT);
     }
+
+    /**
+     * Get active cashiers list for POS shift handover dropdown.
+     *
+     * @return AnonymousResourceCollection
+     */
+    public function getActiveCashiers(): AnonymousResourceCollection
+    {
+        $cashiers = $this->userService->getActiveCashiers();
+
+        return UserResource::collection($cashiers);
+    }
 }

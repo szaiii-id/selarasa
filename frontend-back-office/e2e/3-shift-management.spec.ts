@@ -103,26 +103,22 @@ test.describe('Alur Manajemen Shift (Shift Management E2E - Full Journey)', () =
       await expect(page.locator('tbody')).toContainText(updatedName);
     });
 
-test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) => {
-  // Arrange: Klik tombol Delete pada row pertama
-  const firstDeleteButton = page.locator('button:has-text("Delete")').first();
-  await firstDeleteButton.click();
-  
-  // Assert: Verifikasi ConfirmModal muncul
-  const confirmModalTitle = page.getByRole('heading', { name: 'Delete Master Shift?' });
-  await expect(confirmModalTitle).toBeVisible();
-  
-  // Assert: Verifikasi pesan konfirmasi
-  const confirmMessage = page.getByText(/PERMANENTLY delete/i);
-  await expect(confirmMessage).toBeVisible();
-  
-  // Act: Klik Cancel
-  await page.getByRole('button', { name: 'Cancel' }).click();
-  
-  // Assert: Modal tertutup dan data masih ada
-  await expect(confirmModalTitle).not.toBeVisible();
-  await expect(page.locator('tbody')).toContainText('Morning Shift');
-});
+    test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) => {
+      const firstDeleteButton = page.locator('button:has-text("Delete")').first();
+      await firstDeleteButton.click();
+      
+      const confirmModalTitle = page.getByRole('heading', { name: 'Delete Master Shift?' });
+      await expect(confirmModalTitle).toBeVisible();
+      
+      const confirmMessage = page.getByText(/PERMANENTLY delete/i);
+      await expect(confirmMessage).toBeVisible();
+      
+      await page.getByRole('button', { name: 'Cancel' }).click();
+      
+      await expect(confirmModalTitle).not.toBeVisible();
+      await expect(page.locator('tbody')).toContainText('Morning Shift');
+    });
+
     test('Berpindah ke tab Cashier Shifts dan menampilkan data 7 hari terakhir', async ({ page }) => {
       await page.click('button:has-text("Cashier Shifts")');
       
@@ -143,7 +139,6 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
       await page.click('button:has-text("Cashier Shifts")');
       
       await page.selectOption('select', 'open');
-      
       await page.waitForTimeout(1000);
       
       const statusBadges = page.locator('tbody span:has-text("Open")');
@@ -157,7 +152,6 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
       await page.click('button:has-text("Cashier Shifts")');
       
       await page.click('button:has-text("Today")');
-      
       await page.waitForTimeout(1000);
       
       const todayButton = page.locator('button:has-text("Today")');
@@ -170,7 +164,7 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
       await page.selectOption('select', 'open');
       await page.waitForTimeout(1000);
       
-      const forceCloseButton = page.locator('button:has-text("Force Close")').first();
+      const forceCloseButton = page.locator('button[title="Force Close Shift"]').first();
       
       if (await forceCloseButton.isVisible()) {
         await forceCloseButton.click();
@@ -192,7 +186,7 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
       await page.selectOption('select', 'open');
       await page.waitForTimeout(1000);
       
-      const forceCloseButton = page.locator('button:has-text("Force Close")').first();
+      const forceCloseButton = page.locator('button[title="Force Close Shift"]').first();
       
       if (await forceCloseButton.isVisible()) {
         await forceCloseButton.click();
@@ -251,35 +245,102 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
     test('Admin berhasil melakukan Force Close dan melihat badge audit trail', async ({ page }) => {
       await page.click('button:has-text("Cashier Shifts")');
       
-      // Filter status yang 'open' saja
       await page.selectOption('select', 'open');
       await page.waitForTimeout(1000);
       
-      const forceCloseButton = page.locator('button:has-text("Force Close")').first();
+      const forceCloseButton = page.locator('button[title="Force Close Shift"]').first();
       
       if (await forceCloseButton.isVisible()) {
         await forceCloseButton.click();
         
         await expect(page.locator('h3:has-text("Force Close Shift")')).toBeVisible();
         
-        // Isi form dengan data yang valid
-        await page.fill('input[placeholder="0"]', '500000'); // Expected balance
-        await page.fill('textarea', 'Skenario E2E: Force close karena kasir tidak merespon'); // Notes
+        await page.fill('input[placeholder="0"]', '500000');
+        await page.fill('textarea', 'Skenario E2E: Force close karena kasir tidak merespon');
         
-        // Submit
         await page.click('button:has-text("Force Close Shift")');
         
-        // Verifikasi Modal Sukses
         await expect(page.locator('h3:has-text("Shift Force Closed")')).toBeVisible();
         await page.click('button:has-text("Got it, thanks!")');
         
-        // Cek apakah badge audit trail muncul di UI (closed_by_user)
-        // Kita menggunakan selector atribut title yang sudah kita buat di CashierShiftTable.vue
         const auditBadge = page.locator('span[title="Force Closed by Manager"]').first();
         await expect(auditBadge).toBeVisible();
-        
       } else {
-        // Jika tidak ada shift yang open di database testing, skip dengan aman
+        test.skip();
+      }
+    });
+
+    test('Admin dapat melihat detail shift cashier (Cashier Shift Detail Modal)', async ({ page }) => {
+      await page.click('button:has-text("Cashier Shifts")');
+      await page.waitForTimeout(1000);
+      
+      const viewButton = page.locator('button[title="View Details"]').first();
+      
+      if (await viewButton.isVisible()) {
+        await viewButton.click();
+        
+        const modal = page.locator('.max-w-2xl');
+        await expect(modal).toBeVisible();
+        
+        await expect(modal.getByRole('heading', { name: 'Shift Session Details' })).toBeVisible();
+        
+        await expect(modal.locator('p').filter({ hasText: 'Ref: #' })).toBeVisible();
+        
+        await expect(modal.locator('p').filter({ hasText: /^Opening$/ })).toBeVisible();
+        await expect(modal.locator('p').filter({ hasText: /^Expected$/ })).toBeVisible();
+        await expect(modal.locator('p').filter({ hasText: /^Closing$/ })).toBeVisible();
+        await expect(modal.locator('p').filter({ hasText: /^Variance$/ })).toBeVisible();
+        
+        await expect(modal.getByRole('heading', { name: 'Audit Trail' })).toBeVisible();
+        await expect(modal.locator('p').filter({ hasText: 'Shift Opened' })).toBeVisible();
+        
+        await modal.getByRole('button', { name: 'Close Detail' }).click();
+        
+        await expect(modal).not.toBeVisible();
+      } else {
+        test.skip();
+      }
+    });
+
+    test('Admin dapat melihat detail shift open (menampilkan "Session is still active")', async ({ page }) => {
+      await page.click('button:has-text("Cashier Shifts")');
+      
+      await page.selectOption('select', 'open');
+      await page.waitForTimeout(1000);
+      
+      const viewButton = page.locator('button[title="View Details"]').first();
+      
+      if (await viewButton.isVisible()) {
+        await viewButton.click();
+        
+        await expect(page.locator('h3:has-text("Shift Session Details")')).toBeVisible();
+        
+        await expect(page.locator('text=Session is still active')).toBeVisible();
+        await expect(page.locator('text=Current Time')).toBeVisible();
+        
+        await page.click('button:has-text("Close Detail")');
+      } else {
+        test.skip();
+      }
+    });
+
+    test('Admin dapat melihat detail shift closed (menampilkan audit trail lengkap)', async ({ page }) => {
+      await page.click('button:has-text("Cashier Shifts")');
+      
+      await page.selectOption('select', 'closed');
+      await page.waitForTimeout(1000);
+      
+      const viewButton = page.locator('button[title="View Details"]').first();
+      
+      if (await viewButton.isVisible()) {
+        await viewButton.click();
+        
+        await expect(page.locator('h3:has-text("Shift Session Details")')).toBeVisible();
+        
+        await expect(page.locator('text=Shift Closed')).toBeVisible();
+        
+        await page.click('button:has-text("Close Detail")');
+      } else {
         test.skip();
       }
     });
@@ -330,12 +391,28 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
       await page.selectOption('select', 'open');
       await page.waitForTimeout(1000);
       
-      const forceCloseButton = page.locator('button:has-text("Force Close")').first();
+      const forceCloseButton = page.locator('button[title="Force Close Shift"]').first();
       
       if (await forceCloseButton.isVisible()) {
         await forceCloseButton.click();
         await expect(page.locator('h3:has-text("Force Close Shift")')).toBeVisible();
         await page.click('button:has-text("Cancel")');
+      } else {
+        test.skip();
+      }
+    });
+
+    test('Manager dapat melihat detail shift cashier', async ({ page }) => {
+      await page.goto('/shifts');
+      await page.click('button:has-text("Cashier Shifts")');
+      await page.waitForTimeout(1000);
+      
+      const viewButton = page.locator('button[title="View Details"]').first();
+      
+      if (await viewButton.isVisible()) {
+        await viewButton.click();
+        await expect(page.locator('h3:has-text("Shift Session Details")')).toBeVisible();
+        await page.click('button:has-text("Close Detail")');
       } else {
         test.skip();
       }
@@ -373,13 +450,10 @@ test('Menampilkan konfirmasi delete sebelum menghapus shift', async ({ page }) =
       await page.fill('input[placeholder="••••••••"]', 'selarasa01');
       await page.click('button[type="submit"]');
       
-      // Inventory BISA login ke dashboard
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 15000 });
       
-      // Coba akses shift management
       await page.goto('/shifts');
       
-      // Redirect ke dashboard karena tidak punya akses
       await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
       await expect(page.locator('h1')).toContainText('Dashboard');
     });

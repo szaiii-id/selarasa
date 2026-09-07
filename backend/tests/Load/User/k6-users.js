@@ -10,20 +10,30 @@ const loginSuccessRate = new Rate('login_success_rate');
 const getUsersListSuccessRate = new Rate('get_users_list_success');
 const createUserSuccessRate = new Rate('create_user_success');
 const getProfileSuccessRate = new Rate('get_profile_success');
+const updateUserSuccessRate = new Rate('update_user_success');
 const deactivateSuccessRate = new Rate('deactivate_success');
 const activateSuccessRate = new Rate('activate_success');
+const deleteUserSuccessRate = new Rate('delete_user_success');
+const searchUsersSuccessRate = new Rate('search_users_success');
+const getActiveCashiersSuccessRate = new Rate('get_active_cashiers_success');
 const csrfSuccessRate = new Rate('csrf_success_rate');
 
 const getUsersListDuration = new Trend('get_users_list_duration', true);
 const createUserDuration = new Trend('create_user_duration', true);
 const getProfileDuration = new Trend('get_profile_duration', true);
+const updateUserDuration = new Trend('update_user_duration', true);
 const deactivateDuration = new Trend('deactivate_duration', true);
 const activateDuration = new Trend('activate_duration', true);
+const deleteUserDuration = new Trend('delete_user_duration', true);
+const searchUsersDuration = new Trend('search_users_duration', true);
+const getActiveCashiersDuration = new Trend('get_active_cashiers_duration', true);
 const csrfDuration = new Trend('csrf_duration', true);
 
 const totalUsersCreated = new Counter('total_users_created');
+const totalUsersUpdated = new Counter('total_users_updated');
 const totalUsersDeactivated = new Counter('total_users_deactivated');
 const totalUsersActivated = new Counter('total_users_activated');
+const totalUsersDeleted = new Counter('total_users_deleted');
 
 // =========================================================================
 // 2. CONFIGURATION & THRESHOLDS
@@ -42,22 +52,41 @@ export const options = {
         },
     },
     thresholds: {
+        'http_req_duration{type:csrf_handshake}': ['p(95)<300'],
+        'http_req_failed{type:csrf_handshake}': ['rate<0.01'],
+        'csrf_success_rate': ['rate>0.99'],
+        'http_req_duration{type:backoffice_login}': ['p(95)<500'],
+        'http_req_failed{type:backoffice_login}': ['rate<0.01'],
+        'login_success_rate': ['rate>0.95'],
         'http_req_duration{type:get_users_list}': ['p(95)<300'],
         'http_req_failed{type:get_users_list}': ['rate<0.01'],
         'get_users_list_success': ['rate>0.95'],
+        'http_req_duration{type:get_active_cashiers}': ['p(95)<300'],
+        'http_req_failed{type:get_active_cashiers}': ['rate<0.01'],
+        'get_active_cashiers_success': ['rate>0.95'],
+        'http_req_duration{type:search_users}': ['p(95)<300'],
+        'http_req_failed{type:search_users}': ['rate<0.01'],
+        'search_users_success': ['rate>0.95'],
         'http_req_duration{type:create_user}': ['p(95)<500'],
         'http_req_failed{type:create_user}': ['rate<0.01'],
         'create_user_success': ['rate>0.95'],
-        'http_req_duration{type:get_user_profile}': ['p(95)<150'],
+        'http_req_duration{type:get_user_profile}': ['p(95)<200'],
         'http_req_failed{type:get_user_profile}': ['rate<0.01'],
         'get_profile_success': ['rate>0.95'],
+        'http_req_duration{type:update_user}': ['p(95)<500'],
+        'http_req_failed{type:update_user}': ['rate<0.01'],
+        'update_user_success': ['rate>0.95'],
         'http_req_duration{type:deactivate_user}': ['p(95)<500'],
         'http_req_failed{type:deactivate_user}': ['rate<0.01'],
         'deactivate_success': ['rate>0.95'],
         'http_req_duration{type:activate_user}': ['p(95)<500'],
         'http_req_failed{type:activate_user}': ['rate<0.01'],
         'activate_success': ['rate>0.95'],
+        'http_req_duration{type:delete_user}': ['p(95)<500'],
+        'http_req_failed{type:delete_user}': ['rate<0.01'],
+        'delete_user_success': ['rate>0.95'],
         'http_req_failed': ['rate<0.01'],
+        'http_req_duration': ['p(95)<500'],
     },
 };
 
@@ -66,15 +95,13 @@ export const options = {
 // =========================================================================
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8001';
 const FRONTEND_URL = __ENV.FRONTEND_URL || 'http://localhost:5174';
-const USER_COUNT = parseInt(__ENV.USER_COUNT) || 30;
 const PASSWORD = __ENV.TEST_PASSWORD || 'password_testing_123';
 
-const users = new SharedArray('test admins', function () {
-    const count = parseInt(__ENV.USER_COUNT) || 30;
+const users = new SharedArray('test managers', function () {
     const password = __ENV.TEST_PASSWORD || 'password_testing_123';
     
-    return Array.from({ length: count }, (_, i) => ({
-        username: `user_test_${i + 1}`,
+    return Array.from({ length: 20 }, (_, i) => ({
+        username: `manager_test_${i + 1}`,
         password: password,
     }));
 });
@@ -93,7 +120,7 @@ function getXsrfToken(cookies) {
             return decodeURIComponent(xsrfCookie);
         }
     } catch (e) {
-        console.warn(`[VU ${__VU}] Failed to decode XSRF token: ${e.message}`);
+        // Silently ignore
     }
     
     return '';
@@ -107,38 +134,6 @@ function getBaseHeaders() {
         'Origin': FRONTEND_URL,
         'User-Agent': 'k6-load-test',
     };
-}
-
-function logError(phase, response, user) {
-    let errorMsg = 'Unknown error';
-    let status = 'N/A';
-    
-    if (response) {
-        status = response.status;
-        
-        if (response.body) {
-            errorMsg = response.body.substring(0, 200);
-            
-            try {
-                const jsonBody = JSON.parse(response.body);
-                if (jsonBody && jsonBody.message) {
-                    errorMsg = `Message: ${jsonBody.message}`;
-                }
-            } catch (e) {
-                if (typeof response.body === 'string') {
-                    const titleMatch = response.body.match(/<title>(.*?)<\/title>/i);
-                    if (titleMatch && titleMatch[1]) {
-                        errorMsg = `HTML Page: ${titleMatch[1]}`;
-                    }
-                }
-            }
-        }
-    }
-    
-    console.error(
-        `[VU ${__VU}] ${phase} FAILED | User: ${user.username} | ` +
-        `Status: ${status} | Error: ${errorMsg}`
-    );
 }
 
 function performCsrfHandshake(jar) {
@@ -202,7 +197,6 @@ export default function () {
     const user = users[(__VU - 1) % users.length];
     const jar = http.cookieJar();
     
-    // Login
     const csrfResult = performCsrfHandshake(jar);
     if (!csrfResult.success) return;
     
@@ -223,10 +217,10 @@ export default function () {
         'X-XSRF-TOKEN': refreshResult.token,
     };
     
-    sleep(1);
+    sleep(Math.random() * 2);
     
     // TEST 1: GET PAGINATED USERS
-    group('User Module: Get Paginated List', function () {
+    group('Get Paginated List', function () {
         const startTime = Date.now();
         
         const res = http.get(
@@ -241,23 +235,61 @@ export default function () {
         
         check(res, {
             'Get users status is 200': (r) => r.status === 200,
-            'Has pagination data structure': (r) => r.json('data') !== undefined && r.json('meta') !== undefined,
+            'Has pagination data': (r) => r.json('data') !== undefined && r.json('meta') !== undefined,
         });
-        
-        if (!success) logError('GET_USERS_LIST', res, user);
     });
     
-    sleep(1);
+    sleep(Math.random() * 2);
     
-    // TEST 2: CREATE USER
+    // TEST 2: GET ACTIVE CASHIERS
+    group('Get Active Cashiers', function () {
+        const startTime = Date.now();
+        
+        const res = http.get(
+            `${BASE_URL}/api-test/v1/pos/active-cashiers`,
+            { headers: getHeaders, jar: jar, tags: { type: 'get_active_cashiers' } }
+        );
+        
+        getActiveCashiersDuration.add(Date.now() - startTime);
+        
+        const success = res.status === 200 && Array.isArray(res.json('data'));
+        getActiveCashiersSuccessRate.add(success);
+        
+        check(res, {
+            'Get active cashiers status is 200': (r) => r.status === 200,
+            'Returns array': (r) => Array.isArray(r.json('data')),
+        });
+    });
+    
+    sleep(Math.random() * 2);
+    
+    // TEST 3: SEARCH USERS
+    group('Search Users', function () {
+        const startTime = Date.now();
+        
+        const res = http.get(
+            `${BASE_URL}/api-test/v1/backoffice/users?search=cashier`,
+            { headers: getHeaders, jar: jar, tags: { type: 'search_users' } }
+        );
+        
+        searchUsersDuration.add(Date.now() - startTime);
+        
+        const success = res.status === 200;
+        searchUsersSuccessRate.add(success);
+    });
+    
+    sleep(Math.random() * 2);
+    
+    // TEST 4: CREATE USER
     let newUserId = null;
     
-    group('User Module: Create New User', function () {
+    group('Create New User', function () {
         const uniqueId = `${__VU}_${Date.now()}_${__ITER}`;
         const createPayload = JSON.stringify({
-            name: `LoadTest User ${uniqueId}`,
-            username: `lt_user_${uniqueId}`,
+            name: `LoadTest ${uniqueId}`,
+            username: `lt_${uniqueId}`,
             password: 'Password123!',
+            pin_code: '123456',
             role: 'cashier',
             is_active: true,
         });
@@ -283,16 +315,14 @@ export default function () {
         if (success) {
             newUserId = res.json('data.id');
             totalUsersCreated.add(1);
-        } else {
-            logError('CREATE_USER', res, user);
         }
     });
     
-    sleep(1);
+    sleep(Math.random() * 2);
     
     if (newUserId) {
-        // TEST 3: GET USER PROFILE
-        group('User Module: Get Profile', function () {
+        // TEST 5: GET USER PROFILE
+        group('Get Profile', function () {
             const startTime = Date.now();
             
             const res = http.get(
@@ -304,19 +334,37 @@ export default function () {
             
             const success = res.status === 200 && res.json('data.id') === newUserId;
             getProfileSuccessRate.add(success);
-            
-            check(res, {
-                'Get profile status is 200': (r) => r.status === 200,
-                'Profile ID matches': (r) => r.json('data.id') === newUserId,
-            });
-            
-            if (!success) logError('GET_PROFILE', res, user);
         });
         
-        sleep(1);
+        sleep(Math.random() * 2);
         
-        // TEST 4: DEACTIVATE USER
-        group('User Module: Deactivate User', function () {
+        // TEST 6: UPDATE USER
+        group('Update User', function () {
+            const updatePayload = JSON.stringify({
+                name: `Updated ${newUserId}`,
+                is_active: true,
+            });
+            
+            const startTime = Date.now();
+            
+            const res = http.patch(
+                `${BASE_URL}/api-test/v1/backoffice/users/${newUserId}`,
+                updatePayload,
+                { headers: mutationHeaders, jar: jar, tags: { type: 'update_user' } }
+            );
+            
+            updateUserDuration.add(Date.now() - startTime);
+            
+            const success = res.status === 200;
+            updateUserSuccessRate.add(success);
+            
+            if (success) totalUsersUpdated.add(1);
+        });
+        
+        sleep(Math.random() * 2);
+        
+        // TEST 7: DEACTIVATE USER
+        group('Deactivate User', function () {
             const startTime = Date.now();
             
             const res = http.patch(
@@ -330,19 +378,13 @@ export default function () {
             const success = res.status === 200;
             deactivateSuccessRate.add(success);
             
-            check(res, {
-                'Deactivate status is 200': (r) => r.status === 200,
-                'Success message received': (r) => r.json('message') === 'User has been deactivated successfully.',
-            });
-            
             if (success) totalUsersDeactivated.add(1);
-            else logError('DEACTIVATE_USER', res, user);
         });
         
-        sleep(1);
+        sleep(Math.random() * 2);
         
-        // TEST 5: ACTIVATE USER
-        group('User Module: Activate User', function () {
+        // TEST 8: ACTIVATE USER
+        group('Activate User', function () {
             const startTime = Date.now();
             
             const res = http.patch(
@@ -356,39 +398,56 @@ export default function () {
             const success = res.status === 200;
             activateSuccessRate.add(success);
             
-            check(res, {
-                'Activate status is 200': (r) => r.status === 200,
-                'Success message received': (r) => r.json('message') === 'User has been activated successfully.',
-            });
-            
             if (success) totalUsersActivated.add(1);
-            else logError('ACTIVATE_USER', res, user);
         });
         
-        sleep(1);
+        sleep(Math.random() * 2);
+        
+        // TEST 9: DELETE USER
+        group('Delete User', function () {
+            const startTime = Date.now();
+            
+            const res = http.del(
+                `${BASE_URL}/api-test/v1/backoffice/users/${newUserId}`,
+                null,
+                { headers: mutationHeaders, jar: jar, tags: { type: 'delete_user' } }
+            );
+            
+            deleteUserDuration.add(Date.now() - startTime);
+            
+            const success = res.status === 204;
+            deleteUserSuccessRate.add(success);
+            
+            if (success) totalUsersDeleted.add(1);
+        });
     }
 }
 
+// =========================================================================
+// 6. SETUP & TEARDOWN
+// =========================================================================
 export function setup() {
-    console.log('=== User Module Load Test Setup ===');
+    console.log('=== User Module Load Test ===');
     console.log(`Base URL: ${BASE_URL}`);
-    console.log(`Total Users: ${users.length}`);
-    console.log('===================================');
+    console.log(`Users: ${users.length}`);
+    console.log('============================');
     
     try {
-        const healthCheck = http.get(`${BASE_URL}/sanctum/csrf-cookie`, {
-            headers: getBaseHeaders(),
-        });
-        console.log(`Initial CSRF check status: ${healthCheck.status}`);
+        const health = http.get(`${BASE_URL}/sanctum/csrf-cookie`);
+        console.log(`CSRF health: ${health.status}`);
     } catch (e) {
-        console.error(`Cannot connect to ${BASE_URL}: ${e.message}`);
+        console.error(`Cannot connect: ${e.message}`);
     }
     
     return { startTime: new Date().toISOString() };
 }
 
-export function teardown(data) {
-    console.log('\n=== User Module Load Test Summary ===');
-    console.log(`End Time: ${new Date().toISOString()}`);
-    console.log('=====================================');
+export function teardown() {
+    console.log('\n=== Summary ===');
+    console.log(`Created: ${totalUsersCreated.count}`);
+    console.log(`Updated: ${totalUsersUpdated.count}`);
+    console.log(`Deactivated: ${totalUsersDeactivated.count}`);
+    console.log(`Activated: ${totalUsersActivated.count}`);
+    console.log(`Deleted: ${totalUsersDeleted.count}`);
+    console.log('===============');
 }

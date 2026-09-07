@@ -1,7 +1,53 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, VueWrapper } from '@vue/test-utils';
 import CashierShiftTable from '../CashierShiftTable.vue';
 import type { CashierShift } from '@/types/shift';
+
+// =========================================================================
+// MOCK COMPOSABLES
+// =========================================================================
+
+vi.mock('@/composables/useDateFormat', () => ({
+  useDateFormat: () => ({
+    formatDateTime: (date: string) => {
+      if (!date) return '-';
+      return new Date(date).toLocaleString('id-ID', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  })
+}));
+
+vi.mock('@/composables/useCurrencyFormat', () => ({
+  useCurrencyFormat: () => ({
+    formatCurrency: (amount: number | null) => {
+      if (amount === null || amount === undefined) return '-';
+      return `Rp ${amount.toLocaleString('id-ID')}`;
+    }
+  })
+}));
+
+vi.mock('@/composables/useUserInitials', () => ({
+  useUserInitials: () => ({
+    getInitials: (name: string) => {
+      if (!name || name === 'Unknown') return '?';
+      return name
+        .split(' ')
+        .map(word => word[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+    }
+  })
+}));
+
+// =========================================================================
+// MOCK DATA
+// =========================================================================
 
 const mockOpenShift: CashierShift = {
   id: 1,
@@ -66,7 +112,56 @@ const mockPagination = {
   total: 75
 };
 
-const createWrapper = (props = {}) => {
+// =========================================================================
+// TYPE DEFINITIONS & HELPER FUNCTIONS
+// =========================================================================
+
+type EmittedEventMap = {
+  'view': CashierShift;
+  'force-close': CashierShift;
+  'retry': void;
+  'page-change': number;
+  'filter-change': Record<string, any>;
+};
+
+/**
+ * Helper function untuk mengambil emitted event dengan aman
+ * Menggunakan type assertion untuk menghindari error TypeScript
+ */
+function getEmittedEvent<T extends keyof EmittedEventMap>(
+  wrapper: VueWrapper,
+  eventName: T
+): EmittedEventMap[T] | undefined {
+  const emitted = wrapper.emitted(eventName) as unknown[][] | undefined;
+  
+  if (emitted && emitted.length > 0) {
+    return emitted[0]![0] as EmittedEventMap[T];
+  }
+  
+  return undefined;
+}
+
+/**
+ * Helper function untuk expect emitted event
+ * Akan throw error jika event tidak di-emit
+ */
+function expectEmittedEvent<T extends keyof EmittedEventMap>(
+  wrapper: VueWrapper,
+  eventName: T
+): EmittedEventMap[T] {
+  const event = getEmittedEvent(wrapper, eventName);
+  
+  if (event === undefined) {
+    throw new Error(`Event "${eventName}" was not emitted`);
+  }
+  
+  return event;
+}
+
+/**
+ * Helper function untuk membuat wrapper dengan props default
+ */
+const createWrapper = (props = {}): VueWrapper => {
   return mount(CashierShiftTable, {
     props: {
       shifts: [],
@@ -77,6 +172,18 @@ const createWrapper = (props = {}) => {
     }
   });
 };
+
+/**
+ * Helper function untuk mencari button berdasarkan text
+ * Mengembalikan undefined jika tidak ditemukan
+ */
+function findButtonByText(wrapper: VueWrapper, text: string) {
+  return wrapper.findAll('button').find(btn => btn.text().includes(text));
+}
+
+// =========================================================================
+// TEST SUITE
+// =========================================================================
 
 describe('CashierShiftTable Component', () => {
   // =========================================================================
@@ -90,30 +197,65 @@ describe('CashierShiftTable Component', () => {
       expect(wrapper.text()).toContain('Jane Smith');
       expect(wrapper.text()).toContain('Morning Shift');
       expect(wrapper.text()).toContain('Evening Shift');
+      expect(wrapper.text()).toContain('Rp 500.000');
+      expect(wrapper.text()).toContain('Rp 1.250.000');
+    });
+
+    it('[Happy Path] Emit "view" dengan shift data saat tombol View diklik', async () => {
+      const wrapper = createWrapper({ shifts: [mockOpenShift] });
+      
+      const viewButton = findButtonByText(wrapper, 'View');
+      expect(viewButton).toBeTruthy();
+      
+      await viewButton!.trigger('click');
+      
+      // Menggunakan helper function yang aman
+      const emittedShift = expectEmittedEvent(wrapper, 'view');
+      expect(emittedShift).toEqual(mockOpenShift);
     });
 
     it('[Happy Path] Emit "force-close" dengan shift data saat tombol Force Close diklik', async () => {
       const wrapper = createWrapper({ shifts: [mockOpenShift] });
       
-      const forceCloseButton = wrapper.findAll('button').find(btn => btn.text().includes('Force Close'));
-      if (!forceCloseButton) throw new Error('Tombol Force Close tidak ditemukan');
-      await forceCloseButton.trigger('click');
+      const forceCloseButton = wrapper.findAll('button').find(btn => 
+        btn.text().includes('Close') && !btn.text().includes('View')
+      );
+      expect(forceCloseButton).toBeTruthy();
       
+      await forceCloseButton!.trigger('click');
+      
+      // Menggunakan optional chaining dengan fallback
       const emitted = wrapper.emitted('force-close');
-      expect(emitted).toBeTruthy();
       expect(emitted?.[0]?.[0]).toEqual(mockOpenShift);
     });
 
     it('[Happy Path] Emit "page-change" dengan page number saat tombol Next diklik', async () => {
       const wrapper = createWrapper({ shifts: [mockClosedShift] });
       
-      const nextButton = wrapper.findAll('button').find(btn => btn.text().includes('Next'));
-      if (!nextButton) throw new Error('Tombol Next tidak ditemukan');
-      await nextButton.trigger('click');
+      const nextButton = findButtonByText(wrapper, 'Next');
+      expect(nextButton).toBeTruthy();
       
-      const emitted = wrapper.emitted('page-change');
-      expect(emitted).toBeTruthy();
-      expect(emitted?.[0]?.[0]).toBe(2);
+      await nextButton!.trigger('click');
+      
+      // Menggunakan type assertion dengan non-null
+      const emittedPage = (wrapper.emitted('page-change') as unknown[][])![0]![0];
+      expect(emittedPage).toBe(2);
+    });
+
+    it('[Happy Path] Emit "page-change" dengan page number saat tombol Prev diklik', async () => {
+      const wrapper = createWrapper({ 
+        shifts: [mockClosedShift],
+        pagination: { ...mockPagination, current_page: 2 }
+      });
+      
+      const prevButton = findButtonByText(wrapper, 'Prev');
+      expect(prevButton).toBeTruthy();
+      
+      await prevButton!.trigger('click');
+      
+      // Menggunakan helper function
+      const emittedPage = expectEmittedEvent(wrapper, 'page-change');
+      expect(emittedPage).toBe(1);
     });
 
     it('[Happy Path] Emit "filter-change" dengan filter status saat dropdown berubah', async () => {
@@ -122,9 +264,9 @@ describe('CashierShiftTable Component', () => {
       const select = wrapper.get('select');
       await select.setValue('open');
       
-      const emitted = wrapper.emitted('filter-change');
-      expect(emitted).toBeTruthy();
-      expect(emitted?.[0]?.[0]).toEqual({ status: 'open' });
+      // Menggunakan helper function dengan type assertion
+      const emittedFilter = expectEmittedEvent(wrapper, 'filter-change');
+      expect(emittedFilter).toEqual({ status: 'open' });
     });
 
     it('[Negative Path] Menampilkan error message saat errorMessage ada', () => {
@@ -143,11 +285,28 @@ describe('CashierShiftTable Component', () => {
         errorMessage: 'Failed to fetch cashier shifts.' 
       });
       
-      const retryButton = wrapper.findAll('button').find(btn => btn.text().includes('Try Again'));
-      if (!retryButton) throw new Error('Tombol Try Again tidak ditemukan');
-      await retryButton.trigger('click');
+      const retryButton = findButtonByText(wrapper, 'Try Again');
+      expect(retryButton).toBeTruthy();
       
+      await retryButton!.trigger('click');
+      
+      // Menggunakan truthy assertion
       expect(wrapper.emitted('retry')).toBeTruthy();
+    });
+
+    it('[Negative Path] Tidak emit "force-close" untuk shift closed', async () => {
+      const wrapper = createWrapper({ shifts: [mockClosedShift] });
+      
+      const forceCloseButton = wrapper.findAll('button').find(btn => 
+        btn.text().includes('Close') && !btn.text().includes('View')
+      );
+      expect(forceCloseButton).toBeFalsy();
+    });
+
+    it('[Negative Path] Tidak menampilkan data saat shifts kosong', () => {
+      const wrapper = createWrapper({ shifts: [] });
+      
+      expect(wrapper.text()).toContain('No Shifts Found');
     });
   });
 
@@ -159,14 +318,18 @@ describe('CashierShiftTable Component', () => {
       const wrapper = createWrapper({ shifts: [mockOpenShift] });
       
       expect(wrapper.text()).toContain('Open');
-      expect(wrapper.text()).toContain('Force Close');
+      expect(wrapper.text()).toContain('Close');
+      expect(wrapper.find('.bg-warning\\/15').exists()).toBe(true);
     });
 
-    it('[Partisi 2 - Shift Closed] Menampilkan badge "Closed" dan tanda "-"', () => {
+    it('[Partisi 2 - Shift Closed] Menampilkan badge "Closed" dan tidak ada tombol Force Close', () => {
       const wrapper = createWrapper({ shifts: [mockClosedShift] });
       
       expect(wrapper.text()).toContain('Closed');
-      expect(wrapper.text()).not.toContain('Force Close');
+      const forceCloseButton = wrapper.findAll('button').find(btn => 
+        btn.text().includes('Close') && !btn.text().includes('View')
+      );
+      expect(forceCloseButton).toBeFalsy();
     });
 
     it('[Partisi 3 - Data Kosong] Menampilkan empty state', () => {
@@ -183,40 +346,50 @@ describe('CashierShiftTable Component', () => {
       expect(wrapper.find('.animate-spin').exists()).toBe(true);
     });
 
-    it('[Partisi 5 - Filter Today] Emit filter dengan date hari ini', async () => {
-      const wrapper = createWrapper({ shifts: [] });
+    it('[Partisi 5 - Error State] Menampilkan error message', () => {
+      const wrapper = createWrapper({ 
+        shifts: [], 
+        errorMessage: 'Network error' 
+      });
       
-      const todayButton = wrapper.findAll('button').find(btn => btn.text().includes('Today'));
-      if (!todayButton) throw new Error('Tombol Today tidak ditemukan');
-      await todayButton.trigger('click');
-      
-      const emitted = wrapper.emitted('filter-change');
-      expect(emitted).toBeTruthy();
-      expect((emitted?.[0]?.[0] as any)?.date).toBeDefined();
+      expect(wrapper.text()).toContain('Network error');
+      expect(wrapper.find('.text-error').exists()).toBe(true);
     });
 
-    it('[Partisi 6 - Filter 7 Days] Emit filter kosong untuk 7 days (backend default)', async () => {
+    it('[Partisi 6 - Filter Today] Emit filter dengan date hari ini', async () => {
       const wrapper = createWrapper({ shifts: [] });
       
-      const sevenDaysButton = wrapper.findAll('button').find(btn => btn.text().includes('7 Days'));
-      if (!sevenDaysButton) throw new Error('Tombol 7 Days tidak ditemukan');
-      await sevenDaysButton.trigger('click');
+      const todayButton = findButtonByText(wrapper, 'Today');
+      expect(todayButton).toBeTruthy();
       
-      const emitted = wrapper.emitted('filter-change');
-      expect(emitted).toBeTruthy();
-      expect(emitted?.[0]?.[0]).toEqual({});
+      await todayButton!.trigger('click');
+      
+      const emittedFilter = expectEmittedEvent(wrapper, 'filter-change');
+      expect(emittedFilter).toHaveProperty('date');
     });
 
-    it('[Partisi 7 - Filter 30 Days] Emit filter dengan date_from 30 hari lalu', async () => {
+    it('[Partisi 7 - Filter 7 Days] Emit filter kosong untuk 7 days', async () => {
       const wrapper = createWrapper({ shifts: [] });
       
-      const thirtyDaysButton = wrapper.findAll('button').find(btn => btn.text().includes('30 Days'));
-      if (!thirtyDaysButton) throw new Error('Tombol 30 Days tidak ditemukan');
-      await thirtyDaysButton.trigger('click');
+      const sevenDaysButton = findButtonByText(wrapper, '7 Days');
+      expect(sevenDaysButton).toBeTruthy();
       
-      const emitted = wrapper.emitted('filter-change');
-      expect(emitted).toBeTruthy();
-      expect((emitted?.[0]?.[0] as any)?.date_from).toBeDefined();
+      await sevenDaysButton!.trigger('click');
+      
+      const emittedFilter = expectEmittedEvent(wrapper, 'filter-change');
+      expect(emittedFilter).toEqual({});
+    });
+
+    it('[Partisi 8 - Filter 30 Days] Emit filter dengan date_from', async () => {
+      const wrapper = createWrapper({ shifts: [] });
+      
+      const thirtyDaysButton = findButtonByText(wrapper, '30 Days');
+      expect(thirtyDaysButton).toBeTruthy();
+      
+      await thirtyDaysButton!.trigger('click');
+      
+      const emittedFilter = expectEmittedEvent(wrapper, 'filter-change');
+      expect(emittedFilter).toHaveProperty('date_from');
     });
   });
 
@@ -224,50 +397,46 @@ describe('CashierShiftTable Component', () => {
   // 3. BOUNDARY VALUE ANALYSIS (BVA)
   // =========================================================================
   describe('Boundary Value Analysis (BVA)', () => {
-    it('[BVA - Batas Bawah] Pagination current_page=1, tombol Prev disabled', () => {
+    it('[BVA - Batas Bawah] current_page=1, tombol Prev disabled', () => {
       const wrapper = createWrapper({ 
         shifts: [mockClosedShift],
         pagination: { ...mockPagination, current_page: 1 }
       });
       
-      const prevButton = wrapper.findAll('button').find(btn => btn.text().includes('Prev'));
-      if (!prevButton) throw new Error('Tombol Prev tidak ditemukan');
-      expect(prevButton.attributes('disabled')).toBeDefined();
+      const prevButton = findButtonByText(wrapper, 'Prev');
+      expect(prevButton?.attributes('disabled')).toBeDefined();
     });
 
-    it('[BVA - Batas Atas] Pagination current_page=last_page, tombol Next disabled', () => {
+    it('[BVA - Batas Atas] current_page=last_page, tombol Next disabled', () => {
       const wrapper = createWrapper({ 
         shifts: [mockClosedShift],
         pagination: { ...mockPagination, current_page: 5, last_page: 5 }
       });
       
-      const nextButton = wrapper.findAll('button').find(btn => btn.text().includes('Next'));
-      if (!nextButton) throw new Error('Tombol Next tidak ditemukan');
-      expect(nextButton.attributes('disabled')).toBeDefined();
+      const nextButton = findButtonByText(wrapper, 'Next');
+      expect(nextButton?.attributes('disabled')).toBeDefined();
     });
 
-    it('[BVA - Page 0] changePage(0) tidak emit karena < 1', async () => {
+    it('[BVA - Page 0] Tidak emit page-change saat current_page=1 dan klik Prev', async () => {
       const wrapper = createWrapper({ 
         shifts: [mockClosedShift],
         pagination: { ...mockPagination, current_page: 1 }
       });
       
-      const prevButton = wrapper.findAll('button').find(btn => btn.text().includes('Prev'));
-      if (!prevButton) throw new Error('Tombol Prev tidak ditemukan');
-      await prevButton.trigger('click');
+      const prevButton = findButtonByText(wrapper, 'Prev');
+      await prevButton?.trigger('click');
       
       expect(wrapper.emitted('page-change')).toBeFalsy();
     });
 
-    it('[BVA - Page > last_page] changePage(6) tidak emit karena > last_page', async () => {
+    it('[BVA - Page > last_page] Tidak emit page-change saat current_page=last_page dan klik Next', async () => {
       const wrapper = createWrapper({ 
         shifts: [mockClosedShift],
         pagination: { ...mockPagination, current_page: 5, last_page: 5 }
       });
       
-      const nextButton = wrapper.findAll('button').find(btn => btn.text().includes('Next'));
-      if (!nextButton) throw new Error('Tombol Next tidak ditemukan');
-      await nextButton.trigger('click');
+      const nextButton = findButtonByText(wrapper, 'Next');
+      await nextButton?.trigger('click');
       
       expect(wrapper.emitted('page-change')).toBeFalsy();
     });
@@ -275,13 +444,41 @@ describe('CashierShiftTable Component', () => {
     it('[BVA - Closing Balance null] Menampilkan "-" untuk closing balance null', () => {
       const wrapper = createWrapper({ shifts: [mockOpenShift] });
       
-      expect(wrapper.text()).toContain('-');
+      const allCells = wrapper.findAll('td');
+      const hasDash = allCells.some(td => td.text().trim() === '-');
+      expect(hasDash).toBe(true);
     });
 
-    it('[BVA - Closing Balance ada] Menampilkan format currency untuk closing balance', () => {
-      const wrapper = createWrapper({ shifts: [mockClosedShift] });
+    it('[BVA - Closing Balance 0] Menampilkan "Rp 0" untuk closing balance 0', () => {
+      const shiftWithZeroBalance = { 
+        ...mockClosedShift, 
+        closing_balance: 0 
+      };
+      const wrapper = createWrapper({ shifts: [shiftWithZeroBalance] });
       
-      expect(wrapper.text()).toContain('Rp');
+      expect(wrapper.text()).toContain('Rp 0');
+    });
+
+    it('[BVA - Pagination last_page=1] Hanya 1 halaman, kedua tombol disabled', () => {
+      const wrapper = createWrapper({ 
+        shifts: [mockClosedShift],
+        pagination: { ...mockPagination, current_page: 1, last_page: 1 }
+      });
+      
+      const prevButton = findButtonByText(wrapper, 'Prev');
+      const nextButton = findButtonByText(wrapper, 'Next');
+      
+      expect(prevButton?.attributes('disabled')).toBeDefined();
+      expect(nextButton?.attributes('disabled')).toBeDefined();
+    });
+
+    it('[BVA - Total Records 0] Menampilkan "0 total records"', () => {
+      const wrapper = createWrapper({ 
+        shifts: [],
+        pagination: { ...mockPagination, total: 0, last_page: 0, current_page: 0 }
+      });
+      
+      expect(wrapper.text()).toContain('0 total records');
     });
   });
 
@@ -304,21 +501,27 @@ describe('CashierShiftTable Component', () => {
     });
 
     it('[Corner Case] User null menampilkan "Unknown"', () => {
-      const shiftWithoutUser = { ...mockOpenShift, user: undefined };
+      const shiftWithoutUser = { 
+        ...mockOpenShift, 
+        user: undefined 
+      } as CashierShift;
       const wrapper = createWrapper({ shifts: [shiftWithoutUser] });
       
       expect(wrapper.text()).toContain('Unknown');
     });
 
     it('[Corner Case] Shift null menampilkan "-"', () => {
-      const shiftWithoutMasterShift = { ...mockOpenShift, shift: undefined };
+      const shiftWithoutMasterShift = { 
+        ...mockOpenShift, 
+        shift: undefined 
+      } as CashierShift;
       const wrapper = createWrapper({ shifts: [shiftWithoutMasterShift] });
       
       expect(wrapper.text()).toContain('-');
     });
 
     it('[Edge Case] Table header memiliki 7 kolom', () => {
-      const wrapper = createWrapper({ shifts: mockOpenShift ? [mockOpenShift] : [] });
+      const wrapper = createWrapper({ shifts: [mockOpenShift] });
       
       const headers = wrapper.findAll('thead th');
       expect(headers.length).toBe(7);
@@ -326,6 +529,23 @@ describe('CashierShiftTable Component', () => {
 
     it('[Edge Case] Colspan 7 untuk loading state', () => {
       const wrapper = createWrapper({ shifts: [], isLoading: true });
+      
+      const td = wrapper.find('tbody td');
+      expect(td.attributes('colspan')).toBe('7');
+    });
+
+    it('[Edge Case] Colspan 7 untuk error state', () => {
+      const wrapper = createWrapper({ 
+        shifts: [], 
+        errorMessage: 'Error occurred' 
+      });
+      
+      const td = wrapper.find('tbody td');
+      expect(td.attributes('colspan')).toBe('7');
+    });
+
+    it('[Edge Case] Colspan 7 untuk empty state', () => {
+      const wrapper = createWrapper({ shifts: [] });
       
       const td = wrapper.find('tbody td');
       expect(td.attributes('colspan')).toBe('7');
@@ -364,6 +584,75 @@ describe('CashierShiftTable Component', () => {
       const wrapper = createWrapper({ shifts: [mockForceClosedShift] });
       
       expect(wrapper.text()).toContain('by Super Admin');
+    });
+
+    it('[Corner Case] Initials untuk user dengan 2 kata', () => {
+      const wrapper = createWrapper({ shifts: [mockOpenShift] });
+      
+      // John Doe -> JD
+      expect(wrapper.text()).toContain('JD');
+    });
+
+    it('[Corner Case] Initials untuk user dengan 1 kata', () => {
+      const shiftWithSingleWordName = {
+        ...mockOpenShift,
+        user: {
+          id: 'uuid-3',
+          name: 'John',
+          username: 'john'
+        }
+      };
+      
+      const wrapper = createWrapper({ shifts: [shiftWithSingleWordName] });
+      
+      // John -> J
+      expect(wrapper.text()).toContain('J');
+    });
+
+    it('[Edge Case] Format currency untuk angka besar', () => {
+      const shiftWithLargeBalance = {
+        ...mockClosedShift,
+        closing_balance: 1000000000
+      };
+      
+      const wrapper = createWrapper({ shifts: [shiftWithLargeBalance] });
+      
+      // Rp 1.000.000.000
+      expect(wrapper.text()).toContain('Rp 1.000.000.000');
+    });
+
+    it('[Corner Case] Shift dengan notes tidak mempengaruhi tampilan', () => {
+      const shiftWithNotes = {
+        ...mockClosedShift,
+        notes: 'This is a test note'
+      };
+      
+      const wrapper = createWrapper({ shifts: [shiftWithNotes] });
+      
+      // Notes tidak ditampilkan di tabel
+      expect(wrapper.text()).not.toContain('This is a test note');
+    });
+
+    it('[Edge Case] Format tanggal untuk started_at', () => {
+      const wrapper = createWrapper({ shifts: [mockOpenShift] });
+      
+      // Format tanggal Indonesia (dd/mm/yyyy)
+      expect(wrapper.text()).toMatch(/\d{2}\/\d{2}\/\d{4}/);
+    });
+
+    it('[Corner Case] Shift dengan username mengandung karakter spesial', () => {
+      const shiftWithSpecialUsername = {
+        ...mockOpenShift,
+        user: {
+          id: 'uuid-4',
+          name: 'Test User',
+          username: 'test.user_123'
+        }
+      };
+      
+      const wrapper = createWrapper({ shifts: [shiftWithSpecialUsername] });
+      
+      expect(wrapper.text()).toContain('@test.user_123');
     });
   });
 });

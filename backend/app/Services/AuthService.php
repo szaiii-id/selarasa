@@ -55,6 +55,26 @@ class AuthService
     }
 
     /**
+     * Verify the user's PIN code for sensitive actions or lock screen.
+     * Ensures the account is still active before validation.
+     *
+     * @param User $user
+     * @param string $pinCode
+     * @return void
+     * @throws AuthenticationException|AccessDeniedHttpException
+     */
+    public function verifyPin(User $user, string $pinCode): void
+    {
+        if (!$user->is_active) {
+            throw new AccessDeniedHttpException('Your account has been deactivated. Please contact the manager.');
+        }
+
+        if (!Hash::check($pinCode, $user->pin_code)) {
+            throw new AuthenticationException('Invalid PIN code.');
+        }
+    }
+
+    /**
      * Create an authenticated session for a validated user.
      *
      * @param User $user
