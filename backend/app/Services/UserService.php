@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Exception;
+use Illuminate\Database\Eloquent\Collection;
 
 class UserService
 {
@@ -317,5 +318,15 @@ class UserService
             Log::error("Failed to hard delete user ID {$id}: " . $e->getMessage());
             throw $e;
         }
+    }
+
+    /**
+     * Get all active cashiers for POS handover operations.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getActiveCashiers(): Collection
+    {
+        return $this->userRepository->getActiveCashiers();
     }
 }

@@ -44,7 +44,13 @@ class CashierShiftRepository implements CashierShiftRepositoryInterface
      */
     public function paginateHistory(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
-        $query = CashierShift::with(['user', 'shift', 'closedByUser']);
+        $query = CashierShift::with([
+            'user',
+            'shift',
+            'closedByUser',
+            'handovers.fromUser', 
+            'handovers.toUser'
+            ]);
 
         if (!empty($filters['status'])) {
             $query->where('status', $filters['status']);

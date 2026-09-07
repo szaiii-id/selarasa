@@ -94,4 +94,11 @@ interface UserRepositoryInterface
      * @return bool
      */
     public function activate(User $user): bool;
+
+    /**
+     * Get all active cashiers for POS handover operations.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getActiveCashiers(): \Illuminate\Database\Eloquent\Collection;
 }

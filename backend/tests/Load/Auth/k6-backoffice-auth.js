@@ -33,7 +33,7 @@ export const options = {
         },
     },
     thresholds: {
-        // CSRF Handshake thresholds - Accept both 200 and 204
+        // CSRF Handshake thresholds
         'http_req_duration{type:csrf_handshake}': ['p(95)<500'],
         'http_req_failed{type:csrf_handshake}': ['rate<0.01'],
         'csrf_success_rate': ['rate>0.95'],
@@ -60,16 +60,18 @@ export const options = {
 // =========================================================================
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:8001';
 const FRONTEND_URL = __ENV.FRONTEND_URL || 'http://localhost:5174';
-const USER_COUNT = parseInt(__ENV.USER_COUNT) || 30;
+const USER_COUNT = parseInt(__ENV.USER_COUNT) || 20; // Sesuaikan dengan jumlah manager (20)
 const PASSWORD = __ENV.TEST_PASSWORD || 'password_testing_123';
+const USER_PREFIX = __ENV.USER_PREFIX || 'manager_test'; // Sesuaikan dengan seeder
 
-// Data test users
+// Data test users - Sesuai dengan K6LoadTestSeeder
 const users = new SharedArray('backoffice users', function () {
-    const count = parseInt(__ENV.USER_COUNT) || 30;
+    const count = parseInt(__ENV.USER_COUNT) || 20;
     const password = __ENV.TEST_PASSWORD || 'password_testing_123';
+    const prefix = __ENV.USER_PREFIX || 'manager_test';
     
     return Array.from({ length: count }, (_, i) => ({
-        username: `user_test_${i + 1}`,
+        username: `${prefix}_${i + 1}`,
         password: password,
     }));
 });
@@ -259,8 +261,7 @@ export default function () {
         }
         
         // ---------------------------------------------------------
-        // FASE 3: REFRESH CSRF TOKEN AFTER LOGIN
-        // ---------------------------------------------------------
+        // FASE 3: REFRESH CSRF TOKEN AFTER LOGIN        // ---------------------------------------------------------
         const refreshResult = performCsrfHandshake(jar);
         
         if (!refreshResult.success) {
@@ -358,6 +359,7 @@ export function setup() {
     console.log(`Base URL: ${BASE_URL}`);
     console.log(`Frontend URL: ${FRONTEND_URL}`);
     console.log(`Total Users: ${users.length}`);
+    console.log(`User Prefix: ${USER_PREFIX}`);
     console.log(`Target VUs: 100`);
     console.log(`Test Duration: 3 minutes`);
     console.log('===================================');
@@ -381,6 +383,7 @@ export function setup() {
             baseUrl: BASE_URL,
             frontendUrl: FRONTEND_URL,
             userCount: users.length,
+            userPrefix: USER_PREFIX,
         },
     };
 }
@@ -390,5 +393,6 @@ export function teardown(data) {
     console.log(`Start Time: ${data.startTime}`);
     console.log(`End Time: ${new Date().toISOString()}`);
     console.log(`Total Users: ${data.config.userCount}`);
+    console.log(`User Prefix: ${data.config.userPrefix}`);
     console.log('=====================================');
 }
