@@ -43,6 +43,8 @@ export interface CashierShift {
         name: string;
         username: string;
     };
+
+    handovers?: ShiftHandover[];
 }
 
 /**
@@ -73,4 +75,22 @@ export interface PaginatedResponse<T> {
         per_page: number;
         total: number;
     };
+}
+
+/**
+ * Represents a handover record when a cashier shift is transferred from one user to another.
+ */
+export interface ShiftHandover {
+    id: number;
+    amount_counted: number;
+    notes: string | null;
+    created_at: string;
+    from_user: {
+        id: string;
+        name: string;
+    } | null;
+    to_user: {
+        id: string;
+        name: string;
+    } | null;
 }
