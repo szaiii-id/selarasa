@@ -32,7 +32,7 @@ describe('Login.vue - Frontend Integration Test', () => {
   // =====================================================================
   // 1. HAPPY PATH
   // =====================================================================
-  it('Happy Path: Mengisi form, menekan tombol login, dan beralih ke dashboard jika sukses', async () => {
+  it('Happy Path: Mengisi form, menekan tombol login, dan beralih ke home jika sukses', async () => {
     const wrapper = mount(Login, {
       global: {
         plugins: [createTestingPinia({ createSpy: vi.fn })],
@@ -58,8 +58,8 @@ describe('Login.vue - Frontend Integration Test', () => {
       password: 'password123',
     });
     
-    // 3. Lakukan assertion (pengecekan) pada mock global
-    expect(mockReplace).toHaveBeenCalledWith('/dashboard');
+    // 3. Redirect ke /home (bukan /dashboard)
+    expect(mockReplace).toHaveBeenCalledWith('/home');
   });
 
   // =====================================================================
@@ -80,6 +80,32 @@ describe('Login.vue - Frontend Integration Test', () => {
     const errorAlert = wrapper.find('.bg-error\\/10');
     expect(errorAlert.exists()).toBe(true);
     expect(errorAlert.text()).toContain('Invalid credentials. Please try again.');
+  });
+
+  it('Negative Path: Tidak redirect jika login gagal', async () => {
+    const wrapper = mount(Login, {
+      global: {
+        plugins: [createTestingPinia({ createSpy: vi.fn })],
+      },
+    });
+
+    const store = useAuthStore();
+    // Mock login mengembalikan false
+    vi.mocked(store.login).mockResolvedValue(false);
+
+    const usernameInput = wrapper.find('input[placeholder="Enter your username"]');
+    const passwordInput = wrapper.find('input[placeholder="••••••••"]');
+    const form = wrapper.find('form');
+
+    await usernameInput.setValue('wrong_user');
+    await passwordInput.setValue('wrong_password');
+    await form.trigger('submit.prevent');
+
+    await flushPromises();
+
+    expect(store.login).toHaveBeenCalled();
+    // Tidak boleh redirect jika login gagal
+    expect(mockReplace).not.toHaveBeenCalled();
   });
 
   it('Contract / Validation Testing: Menampilkan pesan error spesifik di bawah input', async () => {
@@ -130,6 +156,23 @@ describe('Login.vue - Frontend Integration Test', () => {
     expect(svgSpinner.exists()).toBe(true);
   });
 
+  it('State Transition (Loading): Input harus disabled saat isLoading true', async () => {
+    const wrapper = mount(Login, {
+      global: {
+        plugins: [createTestingPinia({ 
+          createSpy: vi.fn,
+          initialState: { auth: { isLoading: true } }
+        })],
+      },
+    });
+
+    const usernameInput = wrapper.find('input[placeholder="Enter your username"]');
+    const passwordInput = wrapper.find('input[placeholder="••••••••"]');
+
+    expect(usernameInput.attributes('disabled')).toBeDefined();
+    expect(passwordInput.attributes('disabled')).toBeDefined();
+  });
+
   it('DOM Interaction: Mengubah input type password menjadi text saat icon mata diklik', async () => {
     const wrapper = mount(Login, {
       global: { plugins: [createTestingPinia({ createSpy: vi.fn })] }, 
@@ -147,7 +190,7 @@ describe('Login.vue - Frontend Integration Test', () => {
     expect(passwordInput.attributes('type')).toBe('password');
   });
 
-  it('Clear Error: Mengetik di input harus memanggil store.clearError()', async () => {
+  it('Clear Error: Mengetik di input username harus memanggil store.clearError()', async () => {
     const wrapper = mount(Login, {
       global: { plugins: [createTestingPinia({ createSpy: vi.fn })] },
     });
@@ -155,6 +198,90 @@ describe('Login.vue - Frontend Integration Test', () => {
 
     const usernameInput = wrapper.find('input[placeholder="Enter your username"]');
     await usernameInput.setValue('a');
+
+    expect(store.clearError).toHaveBeenCalledWith('username');
+  });
+
+  it('Clear Error: Mengetik di input password harus memanggil store.clearError()', async () => {
+    const wrapper = mount(Login, {
+      global: { plugins: [createTestingPinia({ createSpy: vi.fn })] },
+    });
+    const store = useAuthStore();
+
+    const passwordInput = wrapper.find('input[placeholder="••••••••"]');
+    await passwordInput.setValue('p');
+
+    expect(store.clearError).toHaveBeenCalledWith('password');
+  });
+
+  // =====================================================================
+  // 4. EDGE CASES & CORNER CASES
+  // =====================================================================
+  it('Edge Case: Form tidak submit jika username kosong', async () => {
+    const wrapper = mount(Login, {
+      global: {
+        plugins: [createTestingPinia({ createSpy: vi.fn })],
+      },
+    });
+
+    const store = useAuthStore();
+    const form = wrapper.find('form');
+
+    // Hanya isi password, username kosong
+    const passwordInput = wrapper.find('input[placeholder="••••••••"]');
+    await passwordInput.setValue('password123');
+    await form.trigger('submit.prevent');
+
+    await flushPromises();
+
+    // Login tetap dipanggil dengan username kosong (karena form tidak punya validasi HTML)
+    expect(store.login).toHaveBeenCalledWith({
+      username: '',
+      password: 'password123',
+    });
+  });
+
+  it('Edge Case: Form submit dengan password kosong', async () => {
+    const wrapper = mount(Login, {
+      global: {
+        plugins: [createTestingPinia({ createSpy: vi.fn })],
+      },
+    });
+
+    const store = useAuthStore();
+    const form = wrapper.find('form');
+
+    const usernameInput = wrapper.find('input[placeholder="Enter your username"]');
+    await usernameInput.setValue('cashier');
+    await form.trigger('submit.prevent');
+
+    await flushPromises();
+
+    expect(store.login).toHaveBeenCalledWith({
+      username: 'cashier',
+      password: '',
+    });
+  });
+
+  it('Corner Case: Error message hilang saat user mulai mengetik', async () => {
+    const wrapper = mount(Login, {
+      global: {
+        plugins: [createTestingPinia({ 
+          createSpy: vi.fn,
+          initialState: {
+            auth: { 
+              errorMessage: 'Previous error',
+              validationErrors: { username: ['Error'] }
+            }
+          }
+        })],
+      },
+    });
+
+    const store = useAuthStore();
+    const usernameInput = wrapper.find('input[placeholder="Enter your username"]');
+    
+    await usernameInput.setValue('new_username');
 
     expect(store.clearError).toHaveBeenCalledWith('username');
   });

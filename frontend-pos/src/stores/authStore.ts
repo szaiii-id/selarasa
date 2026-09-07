@@ -22,7 +22,7 @@ export const useAuthStore = defineStore('auth', () => {
   const fetchUser = async (): Promise<boolean> => {
     try {
       const response = await authApi.getUser();
-      const userData = response.data?.data?.user;
+      const userData = response.data?.data?.user ?? response.data?.data;
 
       if (!userData) {
         user.value = null;

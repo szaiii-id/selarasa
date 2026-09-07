@@ -1,12 +1,16 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import AuthLayout from '../layouts/AuthLayout.vue';
+import PosLayout from '../layouts/PosLayout.vue';
 import Login from '../pages/Login.vue';
+import Home from '../pages/cashier/Home.vue';
 import { useAuthStore } from '../stores/authStore';
+import { useShiftStore } from '../stores/shiftStore';
 
 declare module 'vue-router' {
   interface RouteMeta {
-    layout?: typeof AuthLayout;
+    layout?: typeof AuthLayout | typeof PosLayout | any;
     requiresAuth?: boolean;
+    requiresShift?: boolean;
   }
 }
 
@@ -20,12 +24,37 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/dashboard',
-    name: 'Dashboard',
-    component: () => import('../pages/Dashboard.vue'),
+    path: '/shift',
+    component: () => import('../layouts/ShiftLayout.vue'),
     meta: { 
       requiresAuth: true 
-    }
+    },
+    children: [
+      {
+        path: 'open',
+        name: 'OpenShift',
+        component: () => import('../pages/shift/OpenShiftIndex.vue'),
+      }
+    ]
+  },
+  {
+    path: '/home',
+    component: PosLayout,
+    meta: { 
+      requiresAuth: true,
+      requiresShift: true
+    },
+    children: [
+      {
+        path: '',
+        name: 'Home',
+        component: Home,
+      }
+    ]
+  },
+  {
+    path: '/',
+    redirect: '/home'
   },
   {
     path: '/:pathMatch(.*)*',
@@ -38,15 +67,15 @@ const router = createRouter({
   routes,
 });
 
-
 /**
- * Global navigation guard to secure routes and manage session state.
- * Restores the user session from the backend on page refresh before evaluating route access.
+ * Global navigation guard to secure routes, manage session state,
+ * and ensure active cashier shifts.
  */
 router.beforeEach(async (to) => {
   const authStore = useAuthStore();
+  const shiftStore = useShiftStore();
   
-  if (!authStore.isSessionChecked && to.name !== 'Login') {
+  if (!authStore.isSessionChecked) {
     await authStore.fetchUser();
   }
 
@@ -57,9 +86,30 @@ router.beforeEach(async (to) => {
   }
 
   if (to.name === 'Login' && isAuthenticated) {
-    return { name: 'Dashboard' };
+    return { name: 'Home' };
+  }
+
+  if (to.meta.requiresShift && isAuthenticated) {
+    if (shiftStore.currentShift === null) {
+      await shiftStore.fetchCurrentShift();
+    }
+
+    if (!shiftStore.currentShift) {
+      return { name: 'OpenShift' };
+    }
+  }
+
+  if (to.name === 'OpenShift' && isAuthenticated) {
+    if (shiftStore.currentShift === null) {
+      await shiftStore.fetchCurrentShift();
+    }
+    
+    if (shiftStore.currentShift) {
+      return { name: 'Home' };
+    }
   }
 
   return true;
 });
+
 export default router;

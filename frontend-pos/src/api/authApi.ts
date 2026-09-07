@@ -63,6 +63,17 @@ export const authApi = {
   },
 
   /**
+   * Verifies the authenticated user's PIN to unlock the POS screen.
+   * 
+   * @param {object} payload - Object containing the 6-digit pin_code.
+   */
+  verifyPin(payload: { pin_code: string }) {
+    return api.post('/pos/auth/verify-pin', payload, {
+      timeout: 8000
+    });
+  },
+
+  /**
    * Revokes the current session on the backend.
    * 
    * @param {object} config - Optional Axios request configuration (e.g., AbortController signal).
