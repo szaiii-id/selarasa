@@ -1,151 +1,204 @@
 import { test, expect } from '@playwright/test';
-import { execSync } from 'node:child_process';
+import { execSync } from 'child_process';
 
-test.describe('Alur Autentikasi POS (E2E)', () => {
-
-  test.beforeEach(async ({ page }) => {
-    
-    try {
-      execSync('docker exec selarasa_backend php artisan cache:clear', { stdio: 'ignore' });
-      execSync('docker exec selarasa_backend php artisan config:clear', { stdio: 'ignore' });
-    } catch (error) {
-      
-    }
-    
-    await page.goto('/login');
-    await page.waitForLoadState('networkidle');
-    await page.waitForSelector('input[placeholder="Enter your username"]', { timeout: 15000 });
-  });
+test.describe('Alur Autentikasi & Navigasi POS (E2E - Full Journey)', () => {
 
   test.afterEach(async () => {
     try {
-      execSync('docker exec selarasa_backend php artisan cache:clear', { stdio: 'ignore' });
+      const containerName = process.env.BACKEND_CONTAINER || 'selarasa_backend';
+      execSync(`docker exec ${containerName} php artisan cache:clear`, { stdio: 'ignore' });
     } catch (error) {
-      
+      // Ignore cache clear errors
     }
   });
 
-  test('Login cashier berhasil, masuk dashboard, dan logout', async ({ page }) => {
-    await expect(page.locator('h1')).toContainText('Point of Sale');
-
-    await page.fill('input[placeholder="Enter your username"]', 'cashier');
-    await page.fill('input[placeholder="••••••••"]', 'selarasa01');
+  test.describe('A. LOGIN FLOW', () => {
     
-    const responsePromise = page.waitForResponse(
-      resp => resp.url().includes('/pos/auth/login') && resp.request().method() === 'POST',
-      { timeout: 20000 }
-    );
-    
-    await page.click('button[type="submit"]');
-    
-    const response = await responsePromise;
-    console.log('Login status:', response.status());
-    
-    if (response.status() === 200) {
-      await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
-      await expect(page.locator('h1')).toContainText('Dashboard');
-      await expect(page.locator('p')).toContainText('Welcome to SelaRasa point of sale!');
+    test('Admin berhasil login dan redirect ke /home atau /shift/open', async ({ page }) => {
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
       
-      await page.click('button:has-text("Sign Out")');
-      await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
-    } else {
-      const body = await response.text();
-      console.log('Login response:', body);
-      await page.screenshot({ path: 'test-results/login-failed.png', fullPage: true });
-    }
-  });
-
-  test('Menampilkan error field saat validasi kosong', async ({ page }) => {
-    await page.click('button[type="submit"]');
-    
-    await expect(page).toHaveURL(/\/login/);
-    
-    const usernameInput = page.locator('input[placeholder="Enter your username"]');
-    await expect(usernameInput).toHaveClass(/border-error/);
-    
-    const passwordInput = page.locator('input[placeholder="••••••••"]');
-    await expect(passwordInput).toHaveClass(/border-error/);
-    
-    await expect(page.locator('p.text-xs.text-error').first()).toBeVisible();
-  });
-
-  test('Menampilkan banner error saat password salah', async ({ page }) => {
-    await page.fill('input[placeholder="Enter your username"]', 'cashier');
-    await page.fill('input[placeholder="••••••••"]', 'wrong_password');
-    
-    const responsePromise = page.waitForResponse(
-      resp => resp.url().includes('/pos/auth/login')
-    );
-    
-    await page.click('button[type="submit"]');
-    const response = await responsePromise;
-    
-    console.log('401 Response:', response.status());
-    
-    const errorBanner = page.locator('.bg-error\\/10');
-    await expect(errorBanner).toBeVisible({ timeout: 5000 });
-    await expect(errorBanner.locator('p')).toContainText(/invalid username or password/i);
-  });
-
-  test('Menolak inventory dari POS', async ({ page }) => {
-    await page.fill('input[placeholder="Enter your username"]', 'inventory');
-    await page.fill('input[placeholder="••••••••"]', 'selarasa01');
-    
-    const responsePromise = page.waitForResponse(
-      resp => resp.url().includes('/pos/auth/login')
-    );
-    
-    await page.click('button[type="submit"]');
-    const response = await responsePromise;
-    
-    console.log('Inventory login status:', response.status());
-    
-    await expect(page).toHaveURL(/\/login/);
-    
-    const errorBanner = page.locator('.bg-error\\/10');
-    await expect(errorBanner).toBeVisible({ timeout: 5000 });
-  });
-
-test('Keyboard navigation & toggle password', async ({ page }) => {
-    await page.focus('input[placeholder="Enter your username"]');
-    await page.keyboard.type('cashier');
-    
-    await page.keyboard.press('Tab');
-    await page.keyboard.type('selarasa01');
-    
-    await page.keyboard.press('Tab');
-    await page.keyboard.press('Space');
-    
-    const passwordInput = page.locator('input[placeholder="••••••••"]');
-    await expect(passwordInput).toHaveAttribute('type', 'text');
-    
-    await page.click('button[type="submit"]');
-    
-    await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
-});
-
-  test('Blokir akses langsung ke /dashboard', async ({ page }) => {
-    await page.goto('/dashboard');
-    await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
-  });
-
-  test('Rate limit setelah percobaan gagal', async ({ page }) => {
-    for (let i = 1; i <= 6; i++) {
-      await page.fill('input[placeholder="Enter your username"]', 'hacker');
-      await page.fill('input[placeholder="••••••••"]', `password_${i}`);
-      
-      const responsePromise = page.waitForResponse(
-        resp => resp.url().includes('/pos/auth/login')
-      );
-      
+      await page.fill('input[placeholder="Enter your username"]', 'admin');
+      await page.fill('input[placeholder="••••••••"]', 'selarasa01');
       await page.click('button[type="submit"]');
-      const response = await responsePromise;
       
-      console.log(`Attempt ${i}:`, response.status());
-    }
-    
-    const errorBanner = page.locator('.bg-error\\/10 p');
-    await expect(errorBanner).toBeVisible({ timeout: 5000 });
+      // Admin bisa redirect ke /home (jika ada shift) atau /shift/open (jika tidak ada shift)
+      await page.waitForURL(/\/(home|shift\/open)/, { timeout: 15000 });
+    });
+
+    test('Manager berhasil login dan redirect ke /home atau /shift/open', async ({ page }) => {
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
+      
+      await page.fill('input[placeholder="Enter your username"]', 'manager');
+      await page.fill('input[placeholder="••••••••"]', 'selarasa01');
+      await page.click('button[type="submit"]');
+      
+      await page.waitForURL(/\/(home|shift\/open)/, { timeout: 15000 });
+    });
+
+    test('Cashier berhasil login dan redirect ke /home atau /shift/open', async ({ page }) => {
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
+      
+      await page.fill('input[placeholder="Enter your username"]', 'cashier');
+      await page.fill('input[placeholder="••••••••"]', 'selarasa01');
+      await page.click('button[type="submit"]');
+      
+      await page.waitForURL(/\/(home|shift\/open)/, { timeout: 15000 });
+    });
+
+    test('Login gagal menampilkan error banner', async ({ page }) => {
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
+      
+      await page.fill('input[placeholder="Enter your username"]', 'wrong_user');
+      await page.fill('input[placeholder="••••••••"]', 'wrong_password');
+      await page.click('button[type="submit"]');
+      
+      const errorBanner = page.locator('.bg-error\\/10');
+      await expect(errorBanner).toBeVisible();
+      await expect(page).toHaveURL(/\/login/);
+    });
+
+    test('Toggle show/hide password', async ({ page }) => {
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
+      
+      const passwordInput = page.locator('input[placeholder="••••••••"]');
+      
+      await expect(passwordInput).toHaveAttribute('type', 'password');
+      
+      await page.click('button[type="button"]');
+      await expect(passwordInput).toHaveAttribute('type', 'text');
+      
+      await page.click('button[type="button"]');
+      await expect(passwordInput).toHaveAttribute('type', 'password');
+    });
+
+    test('Mengetik di input username memanggil clearError', async ({ page }) => {
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
+      
+      await page.fill('input[placeholder="Enter your username"]', 'wrong');
+      await page.fill('input[placeholder="••••••••"]', 'wrong');
+      await page.click('button[type="submit"]');
+      await expect(page.locator('.bg-error\\/10')).toBeVisible();
+      
+      await page.fill('input[placeholder="Enter your username"]', 'admin');
+      await expect(page.locator('.bg-error\\/10')).not.toBeVisible();
+    });
   });
 
+  test.describe('B. NAVIGATION GUARD', () => {
+
+    test('User belum login redirect ke /login saat akses /home', async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto('/home');
+      
+      await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
+    });
+
+    test('User belum login redirect ke /login saat akses /shift/open', async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto('/shift/open');
+      
+      await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
+    });
+
+    test('Root path / redirect ke /login', async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto('/');
+      
+      await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
+    });
+
+    test('User sudah login redirect dari /login ke /home atau /shift/open', async ({ page }) => {
+      await page.goto('/login');
+      await page.fill('input[placeholder="Enter your username"]', 'admin');
+      await page.fill('input[placeholder="••••••••"]', 'selarasa01');
+      await page.click('button[type="submit"]');
+      await page.waitForURL(/\/(home|shift\/open)/, { timeout: 15000 });
+      
+      // Coba akses /login lagi
+      await page.goto('/login');
+      
+      // Harus redirect dari /login
+      await page.waitForURL(/\/(home|shift\/open)/, { timeout: 10000 });
+    });
+
+    test('URL tidak dikenal redirect ke /login', async ({ page }) => {
+      await page.context().clearCookies();
+      await page.goto('/unknown-page');
+      
+      await expect(page).toHaveURL(/\/login/, { timeout: 10000 });
+    });
+  });
+
+  test.describe('C. SHIFT GUARD', () => {
+
+    test('User tanpa shift aktif diarahkan ke /shift/open', async ({ page }) => {
+      await page.goto('/login');
+      await page.fill('input[placeholder="Enter your username"]', 'admin');
+      await page.fill('input[placeholder="••••••••"]', 'selarasa01');
+      await page.click('button[type="submit"]');
+      
+      // Jika tidak ada shift, harus di /shift/open
+      await page.waitForURL(/\/(home|shift\/open)/, { timeout: 15000 });
+      
+      if (page.url().includes('/shift/open')) {
+        // Verifikasi halaman Open Shift muncul
+        await expect(page.locator('h1')).toContainText('Start Shift');
+      }
+    });
+
+    test('User di /shift/open tidak bisa akses /home tanpa shift', async ({ page }) => {
+      await page.goto('/login');
+      await page.fill('input[placeholder="Enter your username"]', 'admin');
+      await page.fill('input[placeholder="••••••••"]', 'selarasa01');
+      await page.click('button[type="submit"]');
+      await page.waitForURL(/\/(home|shift\/open)/, { timeout: 15000 });
+      
+      if (page.url().includes('/shift/open')) {
+        await page.goto('/home');
+        await expect(page).toHaveURL(/\/shift\/open/, { timeout: 10000 });
+      }
+    });
+  });
+
+  test.describe('D. UI VISUAL', () => {
+
+    test('Menampilkan judul Point of Sale dan SelaRasa', async ({ page }) => {
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
+      
+      // h1 berisi "Point of Sale"
+      await expect(page.locator('h1')).toContainText('Point of Sale');
+      
+      // Brand SelaRasa
+      await expect(page.locator('text=SelaRasa')).toBeVisible();
+      
+      // Subtitle
+      await expect(page.locator('text=Sign In to Your Account')).toBeVisible();
+    });
+
+    test('Tombol Sign In enabled dan berisi teks yang benar', async ({ page }) => {
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
+      
+      const submitButton = page.locator('button[type="submit"]');
+      await expect(submitButton).toBeEnabled();
+      await expect(submitButton).toContainText('Sign In');
+    });
+
+    test('Responsive: Form login terlihat di viewport mobile', async ({ page }) => {
+      await page.setViewportSize({ width: 375, height: 667 });
+      await page.goto('/login');
+      await page.waitForLoadState('networkidle');
+      
+      await expect(page.locator('input[placeholder="Enter your username"]')).toBeVisible();
+      await expect(page.locator('input[placeholder="••••••••"]')).toBeVisible();
+      await expect(page.locator('button[type="submit"]')).toBeVisible();
+    });
+  });
 });

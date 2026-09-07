@@ -14,12 +14,12 @@ const form = ref({
 const showPassword = ref(false);
 
 /**
- * Submits the login credentials and redirects to the dashboard upon success.
+ * Submits the login credentials and redirects to the home upon success.
  */
 const handleLogin = async () => {
   const success = await authStore.login(form.value);
   if (success) {
-    router.replace('/dashboard');
+    router.replace('/home');
   }
 };
 </script>
