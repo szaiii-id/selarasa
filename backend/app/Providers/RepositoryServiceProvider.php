@@ -3,10 +3,16 @@
 namespace App\Providers;
 
 use App\Contracts\Repositories\CashierShiftRepositoryInterface;
+use App\Contracts\Repositories\RawMaterialCategoryRepositoryInterface;
+use App\Contracts\Repositories\RawMaterialRepositoryInterface;
 use App\Contracts\Repositories\ShiftRepositoryInterface;
+use App\Contracts\Repositories\StockMovementRepositoryInterface;
 use App\Contracts\Repositories\UserRepositoryInterface;
 use App\Repositories\CashierShiftRepository;
+use App\Repositories\RawMaterialCategoryRepository;
+use App\Repositories\RawMaterialRepository;
 use App\Repositories\ShiftRepository;
+use App\Repositories\StockMovementRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\ServiceProvider;
 
@@ -33,6 +39,24 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             CashierShiftRepositoryInterface::class,
             CashierShiftRepository::class
+        );
+
+        // ==========================================
+        // INVENTORY MODULE REPOSITORIES
+        // ==========================================
+        $this->app->bind(
+            RawMaterialCategoryRepositoryInterface::class,
+            RawMaterialCategoryRepository::class
+        );
+
+        $this->app->bind(
+            RawMaterialRepositoryInterface::class,
+            RawMaterialRepository::class
+        );
+
+        $this->app->bind(
+            StockMovementRepositoryInterface::class,
+            StockMovementRepository::class
         );
     }
 
