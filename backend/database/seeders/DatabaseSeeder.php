@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
         UserSeeder::class,
         ShiftSeeder::class,
         CashierShiftSeeder::class,
+        InventorySeeder::class,
       ]);  
 
         /**

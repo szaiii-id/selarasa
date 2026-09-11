@@ -3,6 +3,9 @@
 use App\Http\Controllers\Api\V1\Auth\LogoutController;
 use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\BackOffice\Auth\LoginController as BackOfficeLoginController;
+use App\Http\Controllers\Api\V1\BackOffice\Inventory\RawMaterialCategoryController;
+use App\Http\Controllers\Api\V1\BackOffice\Inventory\RawMaterialController;
+use App\Http\Controllers\Api\V1\BackOffice\Inventory\StockMovementController;
 use App\Http\Controllers\Api\V1\BackOffice\Shift\ShiftController;
 use App\Http\Controllers\Api\V1\BackOffice\Shift\CashierShiftController as BackOfficeCashierShiftController;
 use App\Http\Controllers\Api\V1\BackOffice\User\UserController;
@@ -103,6 +106,19 @@ Route::prefix('v1')->group(function () {
                     ->name('force-close');
             });
 
+
+            /*
+            |----------------------------------------------------------------------
+            | INVENTORY MANAGEMENT AREA (Load Testing)
+            |----------------------------------------------------------------------
+            */
+            Route::prefix('inventory')->name('test.v1.backoffice.inventory.')->group(function () {
+                Route::apiResource('categories', RawMaterialCategoryController::class)->names('categories');
+                Route::apiResource('materials', RawMaterialController::class)->except(['destroy'])->names('materials');
+                Route::apiResource('movements', StockMovementController::class)->only(['index', 'store'])->names('movements');
+            });
+
+
         });
 
     });
@@ -153,6 +169,7 @@ Route::prefix('v1')->group(function () {
         // ==========================================
         Route::get('/active-cashiers', [UserController::class, 'getActiveCashiers'])
             ->name('test.v1.pos.active-cashiers');
+
 
     });
 

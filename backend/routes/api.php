@@ -3,6 +3,9 @@
 use App\Http\Controllers\Api\V1\Auth\LogoutController;
 use App\Http\Controllers\Api\V1\Auth\MeController;
 use App\Http\Controllers\Api\V1\BackOffice\Auth\LoginController as BackOfficeLoginController;
+use App\Http\Controllers\Api\V1\BackOffice\Inventory\RawMaterialCategoryController;
+use App\Http\Controllers\Api\V1\BackOffice\Inventory\RawMaterialController;
+use App\Http\Controllers\Api\V1\BackOffice\Inventory\StockMovementController;
 use App\Http\Controllers\Api\V1\BackOffice\Shift\ShiftController;
 use App\Http\Controllers\Api\V1\BackOffice\Shift\CashierShiftController as BackOfficeCashierShiftController;
 use App\Http\Controllers\Api\V1\BackOffice\User\UserController;
@@ -94,6 +97,38 @@ Route::prefix('v1')->group(function () {
                 Route::get('/', [BackOfficeCashierShiftController::class, 'index'])->name('index');
                 Route::post('/{id}/force-close', [BackOfficeCashierShiftController::class, 'forceClose'])->name('force-close');
             });
+
+        });
+
+        /*
+        |----------------------------------------------------------------------
+        | INVENTORY MANAGEMENT AREA
+        |----------------------------------------------------------------------
+        | Accessible by Admin, Manager, and Inventory (Staf Gudang).
+        */
+        Route::prefix('inventory')->name('api.v1.backoffice.inventory.')->group(function () {
+            
+            // ==========================================
+            // RAW MATERIAL CATEGORIES
+            // ==========================================
+            Route::apiResource('categories', RawMaterialCategoryController::class)
+                ->names('categories');
+
+            // ==========================================
+            // RAW MATERIAL MASTER
+            // ==========================================
+            // We exclude 'destroy' to enforce soft-deactivate via update logic.
+            Route::apiResource('materials', RawMaterialController::class)
+                ->except(['destroy'])
+                ->names('materials');
+
+            // ==========================================
+            // STOCK MOVEMENTS (AUDIT TRAIL)
+            // ==========================================
+            // Strictly locked to 'index' and 'store' for immutable audit trails.
+            Route::apiResource('movements', StockMovementController::class)
+                ->only(['index', 'store'])
+                ->names('movements');
 
         });
 
