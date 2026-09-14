@@ -73,31 +73,31 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const selects = wrapper.findAll('select');
-      expect(selects[0].text()).toContain('All Types');
+      expect(selects[0]!.text()).toContain('All Types');
     });
 
     it('[Happy Path] merender opsi IN, OUT, ADJUSTMENT', () => {
       const wrapper = createWrapper();
 
       const selects = wrapper.findAll('select');
-      expect(selects[0].text()).toContain('IN — Stock In');
-      expect(selects[0].text()).toContain('OUT — Stock Out');
-      expect(selects[0].text()).toContain('ADJUSTMENT');
+      expect(selects[0]!.text()).toContain('IN — Stock In');
+      expect(selects[0]!.text()).toContain('OUT — Stock Out');
+      expect(selects[0]!.text()).toContain('ADJUSTMENT');
     });
 
     it('[Happy Path] merender opsi "All Materials" di select material', () => {
       const wrapper = createWrapper();
 
       const selects = wrapper.findAll('select');
-      expect(selects[1].text()).toContain('All Materials');
+      expect(selects[1]!.text()).toContain('All Materials');
     });
 
     it('[Happy Path] merender opsi material dari props', () => {
       const wrapper = createWrapper({ materialOptions: createMaterialOptions() });
 
       const selects = wrapper.findAll('select');
-      expect(selects[1].text()).toContain('Fresh Milk UHT — RM-001');
-      expect(selects[1].text()).toContain('Coffee Beans — RM-002');
+      expect(selects[1]!.text()).toContain('Fresh Milk UHT — RM-001');
+      expect(selects[1]!.text()).toContain('Coffee Beans — RM-002');
     });
 
     it('[Happy Path] merender 3 SVG chevron (2 select + 1 calendar)', () => {
@@ -108,14 +108,14 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 2. VALUE BINDING — props → control value
+  // 2. VALUE BINDING — props → control value — ✅ FIX non-null assertion
   // =========================================================================
   describe('Value Binding', () => {
     it('[Happy Path] select type menampilkan value dari props', () => {
       const wrapper = createWrapper({ movementType: 'IN' });
 
       const selects = wrapper.findAll('select');
-      expect((selects[0].element as HTMLSelectElement).value).toBe('IN');
+      expect((selects[0]!.element as HTMLSelectElement).value).toBe('IN');
     });
 
     it('[Happy Path] select material menampilkan value dari props', () => {
@@ -125,33 +125,33 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       });
 
       const selects = wrapper.findAll('select');
-      expect((selects[1].element as HTMLSelectElement).value).toBe('1');
+      expect((selects[1]!.element as HTMLSelectElement).value).toBe('1');
     });
 
     it('[Happy Path] date input start menampilkan value', () => {
       const wrapper = createWrapper({ startDate: '2024-01-15' });
 
       const dateInputs = wrapper.findAll('input[type="date"]');
-      expect((dateInputs[0].element as HTMLInputElement).value).toBe('2024-01-15');
+      expect((dateInputs[0]!.element as HTMLInputElement).value).toBe('2024-01-15');
     });
 
     it('[Happy Path] date input end menampilkan value', () => {
       const wrapper = createWrapper({ endDate: '2024-01-20' });
 
       const dateInputs = wrapper.findAll('input[type="date"]');
-      expect((dateInputs[1].element as HTMLInputElement).value).toBe('2024-01-20');
+      expect((dateInputs[1]!.element as HTMLInputElement).value).toBe('2024-01-20');
     });
   });
 
   // =========================================================================
-  // 3. EVENT EMISSION — v-model
+  // 3. EVENT EMISSION — v-model — ✅ FIX non-null assertion
   // =========================================================================
   describe('Event Emission — type', () => {
     it('[Happy Path] emit "update:movementType" saat select type berubah', async () => {
       const wrapper = createWrapper();
 
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('OUT');
+      await selects[0]!.setValue('OUT');
 
       const emitted = wrapper.emitted('update:movementType');
       expect(emitted).toBeTruthy();
@@ -162,7 +162,7 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       const wrapper = createWrapper({ movementType: 'IN' });
 
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('');
+      await selects[0]!.setValue('');
 
       const emitted = wrapper.emitted('update:movementType');
       expect(emitted![0]).toEqual(['']);
@@ -174,7 +174,7 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       const wrapper = createWrapper({ materialOptions: createMaterialOptions() });
 
       const selects = wrapper.findAll('select');
-      await selects[1].setValue('2');
+      await selects[1]!.setValue('2');
 
       const emitted = wrapper.emitted('update:rawMaterialId');
       expect(emitted).toBeTruthy();
@@ -189,7 +189,7 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       });
 
       const selects = wrapper.findAll('select');
-      await selects[1].setValue('');
+      await selects[1]!.setValue('');
 
       const emitted = wrapper.emitted('update:rawMaterialId');
       expect(emitted![0]).toEqual(['']);
@@ -201,7 +201,7 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const dateInputs = wrapper.findAll('input[type="date"]');
-      await dateInputs[0].setValue('2024-02-01');
+      await dateInputs[0]!.setValue('2024-02-01');
 
       const emitted = wrapper.emitted('update:startDate');
       expect(emitted).toBeTruthy();
@@ -212,7 +212,7 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const dateInputs = wrapper.findAll('input[type="date"]');
-      await dateInputs[1].setValue('2024-02-28');
+      await dateInputs[1]!.setValue('2024-02-28');
 
       const emitted = wrapper.emitted('update:endDate');
       expect(emitted![0]).toEqual(['2024-02-28']);
@@ -375,7 +375,7 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 6. PROPS REACTIVITY
+  // 6. PROPS REACTIVITY — ✅ FIX non-null assertion
   // =========================================================================
   describe('Props Reactivity', () => {
     it('[Happy Path] select type ter-update saat props berubah', async () => {
@@ -384,7 +384,7 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       await wrapper.setProps({ movementType: 'OUT' });
 
       const selects = wrapper.findAll('select');
-      expect((selects[0].element as HTMLSelectElement).value).toBe('OUT');
+      expect((selects[0]!.element as HTMLSelectElement).value).toBe('OUT');
     });
 
     it('[Happy Path] select material ter-update', async () => {
@@ -396,7 +396,7 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       await wrapper.setProps({ rawMaterialId: 2 });
 
       const selects = wrapper.findAll('select');
-      expect((selects[1].element as HTMLSelectElement).value).toBe('2');
+      expect((selects[1]!.element as HTMLSelectElement).value).toBe('2');
     });
 
     it('[Happy Path] date start ter-update', async () => {
@@ -405,7 +405,7 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       await wrapper.setProps({ startDate: '2024-02-01' });
 
       const dateInputs = wrapper.findAll('input[type="date"]');
-      expect((dateInputs[0].element as HTMLInputElement).value).toBe('2024-02-01');
+      expect((dateInputs[0]!.element as HTMLInputElement).value).toBe('2024-02-01');
     });
 
     it('[Happy Path] tombol clear muncul/hilang saat date berubah', async () => {
@@ -428,21 +428,21 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       await wrapper.setProps({ materialOptions: createMaterialOptions() });
 
       const selects = wrapper.findAll('select');
-      expect(selects[1].text()).toContain('Fresh Milk UHT');
+      expect(selects[1]!.text()).toContain('Fresh Milk UHT');
     });
   });
 
   // =========================================================================
-  // 7. BOUNDARY VALUE ANALYSIS (BVA)
+  // 7. BOUNDARY VALUE ANALYSIS (BVA) — ✅ FIX non-null assertion
   // =========================================================================
   describe('Boundary Value Analysis (BVA)', () => {
     it('[BVA - materialOptions kosong] hanya "All Materials" tampil', () => {
       const wrapper = createWrapper({ materialOptions: [] });
 
       const selects = wrapper.findAll('select');
-      const options = selects[1].findAll('option');
+      const options = selects[1]!.findAll('option');
       expect(options).toHaveLength(1);
-      expect(options[0].text()).toBe('All Materials');
+      expect(options[0]!.text()).toBe('All Materials');
     });
 
     it('[BVA - materialOptions banyak] render semua opsi', () => {
@@ -459,15 +459,14 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       const wrapper = createWrapper({ materialOptions: options });
 
       const selects = wrapper.findAll('select');
-      const renderedOptions = selects[1].findAll('option');
-      // 1 (All) + 50
+      const renderedOptions = selects[1]!.findAll('option');
       expect(renderedOptions).toHaveLength(51);
     });
 
     it('[BVA - movementType valid: IN, OUT, ADJUSTMENT', () => {
       const wrapper = createWrapper();
       const selects = wrapper.findAll('select');
-      const options = selects[0].findAll('option');
+      const options = selects[0]!.findAll('option');
       const values = options.map((o) => o.element.value);
       expect(values).toContain('IN');
       expect(values).toContain('OUT');
@@ -481,7 +480,7 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       });
 
       const selects = wrapper.findAll('select');
-      expect((selects[1].element as HTMLSelectElement).value).toBe('0');
+      expect((selects[1]!.element as HTMLSelectElement).value).toBe('0');
     });
 
     it('[BVA - materialId besar] value ter-set dengan benar', () => {
@@ -491,12 +490,12 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       });
 
       const selects = wrapper.findAll('select');
-      expect((selects[1].element as HTMLSelectElement).value).toBe('999999');
+      expect((selects[1]!.element as HTMLSelectElement).value).toBe('999999');
     });
   });
 
   // =========================================================================
-  // 8. EDGE CASES & CORNER CASES
+  // 8. EDGE CASES & CORNER CASES — ✅ FIX non-null assertion
   // =========================================================================
   describe('Edge Cases & Corner Cases', () => {
     it('[Edge Case] tidak emit apapun saat mount', () => {
@@ -551,7 +550,6 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
     });
 
     it('[Corner Case] date preset tidak overlapping saat range menengah', () => {
-      // Range 5 hari terakhir → bukan today, bukan 7d, bukan 30d
       const wrapper = createWrapper({
         startDate: '2024-01-05',
         endDate: '2024-01-10',
@@ -583,12 +581,12 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       });
 
       const selects = wrapper.findAll('select');
-      expect(selects[1].text()).toContain('Coffee — SKU-001');
+      expect(selects[1]!.text()).toContain('Coffee — SKU-001');
     });
   });
 
   // =========================================================================
-  // 9. INTEGRATION — v-model pattern
+  // 9. INTEGRATION — v-model pattern — ✅ FIX non-null assertion + Parent type
   // =========================================================================
   describe('Integration — v-model pattern', () => {
     it('[Integration] parent bisa update semua filter via v-model', async () => {
@@ -611,7 +609,14 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
           <span data-testid="start">{{ startDate }}</span>
           <span data-testid="end">{{ endDate }}</span>
         `,
-        data() {
+        // ✅ FIX: explicit return type
+        data(): {
+          rawMaterialId: number | '';
+          movementType: string;
+          startDate: string;
+          endDate: string;
+          materialOptions: MaterialOption[];
+        } {
           return {
             rawMaterialId: '' as number | '',
             movementType: '' as string,
@@ -627,18 +632,18 @@ describe('MovementFilterBar.vue (Component Testing)', () => {
       const dateInputs = wrapper.findAll('input[type="date"]');
 
       // Type
-      await selects[0].setValue('IN');
+      await selects[0]!.setValue('IN');
       expect(wrapper.find('[data-testid="type"]').text()).toBe('IN');
 
       // Material
-      await selects[1].setValue('1');
+      await selects[1]!.setValue('1');
       expect(wrapper.find('[data-testid="material"]').text()).toBe('1');
 
       // Date
-      await dateInputs[0].setValue('2024-01-01');
+      await dateInputs[0]!.setValue('2024-01-01');
       expect(wrapper.find('[data-testid="start"]').text()).toBe('2024-01-01');
 
-      await dateInputs[1].setValue('2024-01-31');
+      await dateInputs[1]!.setValue('2024-01-31');
       expect(wrapper.find('[data-testid="end"]').text()).toBe('2024-01-31');
     });
   });

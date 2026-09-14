@@ -127,7 +127,7 @@ describe('MovementTable.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 4. TABLE RENDERING
+  // 4. TABLE RENDERING — ✅ FIX non-null assertion
   // =========================================================================
   describe('Table Rendering', () => {
     it('[Happy Path] render table saat movements ada', () => {
@@ -141,14 +141,14 @@ describe('MovementTable.vue (Component Testing)', () => {
 
       const headers = wrapper.findAll('thead th');
       expect(headers).toHaveLength(8);
-      expect(headers[0].text()).toBe('When');
-      expect(headers[1].text()).toBe('Material');
-      expect(headers[2].text()).toBe('Type');
-      expect(headers[3].text()).toBe('Qty');
-      expect(headers[4].text()).toBe('Balance Flow');
-      expect(headers[5].text()).toBe('Reason');
-      expect(headers[6].text()).toBe('By');
-      expect(headers[7].text()).toBe('Actions');
+      expect(headers[0]!.text()).toBe('When');
+      expect(headers[1]!.text()).toBe('Material');
+      expect(headers[2]!.text()).toBe('Type');
+      expect(headers[3]!.text()).toBe('Qty');
+      expect(headers[4]!.text()).toBe('Balance Flow');
+      expect(headers[5]!.text()).toBe('Reason');
+      expect(headers[6]!.text()).toBe('By');
+      expect(headers[7]!.text()).toBe('Actions');
     });
 
     it('[Happy Path] render N baris untuk N movements', () => {
@@ -213,7 +213,7 @@ describe('MovementTable.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 5. FORMAT DATETIME
+  // 5. FORMAT DATETIME — ✅ FIX non-null assertion
   // =========================================================================
   describe('formatDateTime', () => {
     it('[Happy Path] format tanggal & waktu', () => {
@@ -239,7 +239,7 @@ describe('MovementTable.vue (Component Testing)', () => {
       });
 
       const row = wrapper.find('tbody tr');
-      const whenCell = row.findAll('td')[0];
+      const whenCell = row.findAll('td')[0]!;
       expect(whenCell.text()).toContain('-');
     });
 
@@ -249,9 +249,9 @@ describe('MovementTable.vue (Component Testing)', () => {
       });
 
       const row = wrapper.find('tbody tr');
-      const whenCell = row.findAll('td')[0];
+      const whenCell = row.findAll('td')[0]!;
       const paragraphs = whenCell.findAll('p');
-      expect(paragraphs).toHaveLength(2); // date + time
+      expect(paragraphs).toHaveLength(2);
     });
   });
 
@@ -434,7 +434,6 @@ describe('MovementTable.vue (Component Testing)', () => {
         movements: [createMovement()],
       });
 
-      // Arrow SVG dengan class text-primary
       const arrow = wrapper.find('.text-primary');
       expect(arrow.exists()).toBe(true);
     });
@@ -491,7 +490,6 @@ describe('MovementTable.vue (Component Testing)', () => {
         ],
       });
 
-      // Avatar punya salah satu warna dari array
       const avatar = wrapper.find('.w-6.h-6.rounded-md');
       expect(avatar.exists()).toBe(true);
     });
@@ -516,7 +514,7 @@ describe('MovementTable.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 11. EVENT EMISSION — view & retry
+  // 11. EVENT EMISSION — view & retry — ✅ FIX double non-null assertion
   // =========================================================================
   describe('Event Emission — view', () => {
     it('[Happy Path] emit "view" dengan payload movement', async () => {
@@ -524,7 +522,7 @@ describe('MovementTable.vue (Component Testing)', () => {
       const wrapper = createWrapper({ movements: [movement] });
 
       const rows = wrapper.findAll('tbody tr');
-      const viewBtn = rows[0].find('button');
+      const viewBtn = rows[0]!.find('button');
       await viewBtn.trigger('click');
 
       const emitted = wrapper.emitted('view');
@@ -537,7 +535,7 @@ describe('MovementTable.vue (Component Testing)', () => {
       const wrapper = createWrapper({ movements: [mat1, mat2] });
 
       const rows = wrapper.findAll('tbody tr');
-      const viewBtn = rows[1].find('button');
+      const viewBtn = rows[1]!.find('button');
       await viewBtn.trigger('click');
 
       const emitted = wrapper.emitted('view');
@@ -548,7 +546,7 @@ describe('MovementTable.vue (Component Testing)', () => {
       const wrapper = createWrapper({ movements: [createMovement()] });
 
       const rows = wrapper.findAll('tbody tr');
-      const viewBtn = rows[0].find('button');
+      const viewBtn = rows[0]!.find('button');
       expect(viewBtn.attributes('title')).toBe('View Details');
     });
   });
@@ -751,6 +749,7 @@ describe('MovementTable.vue (Component Testing)', () => {
 
   // =========================================================================
   // 15. INTEGRATION — Parent Component
+  // ✅ FIX TS2339: explicit type untuk data() & methods this
   // =========================================================================
   describe('Integration — Parent Component', () => {
     it('[Integration] parent handle view event', async () => {
@@ -765,7 +764,8 @@ describe('MovementTable.vue (Component Testing)', () => {
           />
           <span data-testid="viewed">{{ viewed ? 'yes' : 'no' }}</span>
         `,
-        data() {
+        // ✅ FIX: explicit return type
+        data(): { viewed: boolean; movements: any[] } {
           return {
             viewed: false,
             movements: [
@@ -791,7 +791,8 @@ describe('MovementTable.vue (Component Testing)', () => {
           };
         },
         methods: {
-          handleView() {
+          // ✅ FIX: explicit `this` type
+          handleView(this: { viewed: boolean }) {
             this.viewed = true;
           },
         },

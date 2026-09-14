@@ -427,7 +427,6 @@ describe('MovementDetailModal.vue (Component Testing)', () => {
         }),
       });
 
-      // Role di-render dengan class uppercase (bukan diubah di string)
       const roleEl = wrapper.find('.uppercase.tracking-widest');
       expect(roleEl.exists()).toBe(true);
     });
@@ -507,7 +506,6 @@ describe('MovementDetailModal.vue (Component Testing)', () => {
         movement: createMovement({ created_at: '2024-01-20T10:30:45Z' }),
       });
 
-      // Waktu dalam format id-ID
       expect(wrapper.text()).toMatch(/\d{2}[.:]\d{2}/);
     });
 
@@ -535,14 +533,14 @@ describe('MovementDetailModal.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 9. EVENT EMISSION — close
+  // 9. EVENT EMISSION — close — ✅ FIX non-null assertion (line 545 di CI)
   // =========================================================================
   describe('Event Emission — close', () => {
     it('[Happy Path] emit "close" saat klik tombol X', async () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      await buttons[0].trigger('click');
+      await buttons[0]!.trigger('click');
 
       expect(wrapper.emitted('close')).toHaveLength(1);
     });

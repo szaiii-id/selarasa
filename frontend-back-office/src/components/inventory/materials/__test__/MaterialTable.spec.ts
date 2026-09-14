@@ -102,7 +102,6 @@ describe('MaterialTable.vue (Component Testing)', () => {
         materials: [],
       });
 
-      // v-if loading dicek duluan
       expect(wrapper.text()).toContain('Loading materials...');
       expect(wrapper.text()).not.toContain('Error');
     });
@@ -127,7 +126,7 @@ describe('MaterialTable.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 4. TABLE RENDERING
+  // 4. TABLE RENDERING — ✅ FIX non-null assertion
   // =========================================================================
   describe('Table Rendering', () => {
     it('[Happy Path] render table saat materials ada', () => {
@@ -141,12 +140,12 @@ describe('MaterialTable.vue (Component Testing)', () => {
 
       const headers = wrapper.findAll('thead th');
       expect(headers).toHaveLength(6);
-      expect(headers[0].text()).toBe('SKU / Name');
-      expect(headers[1].text()).toBe('Category');
-      expect(headers[2].text()).toBe('Stock');
-      expect(headers[3].text()).toBe('Min');
-      expect(headers[4].text()).toBe('Status');
-      expect(headers[5].text()).toBe('Actions');
+      expect(headers[0]!.text()).toBe('SKU / Name');
+      expect(headers[1]!.text()).toBe('Category');
+      expect(headers[2]!.text()).toBe('Stock');
+      expect(headers[3]!.text()).toBe('Min');
+      expect(headers[4]!.text()).toBe('Status');
+      expect(headers[5]!.text()).toBe('Actions');
     });
 
     it('[Happy Path] render N baris untuk N materials', () => {
@@ -218,7 +217,7 @@ describe('MaterialTable.vue (Component Testing)', () => {
       const wrapper = createWrapper({ materials: [createMaterial()] });
 
       const rows = wrapper.findAll('tbody tr');
-      const buttons = rows[0].findAll('button');
+      const buttons = rows[0]!.findAll('button');
       expect(buttons).toHaveLength(2);
     });
 
@@ -226,23 +225,23 @@ describe('MaterialTable.vue (Component Testing)', () => {
       const wrapper = createWrapper({ materials: [createMaterial()] });
 
       const rows = wrapper.findAll('tbody tr');
-      const buttons = rows[0].findAll('button');
-      expect(buttons[0].attributes('title')).toBe('View Details');
+      const buttons = rows[0]!.findAll('button');
+      expect(buttons[0]!.attributes('title')).toBe('View Details');
     });
 
     it('[Happy Path] tombol Edit punya title "Edit"', () => {
       const wrapper = createWrapper({ materials: [createMaterial()] });
 
       const rows = wrapper.findAll('tbody tr');
-      const buttons = rows[0].findAll('button');
-      expect(buttons[1].attributes('title')).toBe('Edit');
+      const buttons = rows[0]!.findAll('button');
+      expect(buttons[1]!.attributes('title')).toBe('Edit');
     });
 
     it('[Happy Path] tombol View punya hover:bg-info/10', () => {
       const wrapper = createWrapper({ materials: [createMaterial()] });
 
       const rows = wrapper.findAll('tbody tr');
-      const viewBtn = rows[0].findAll('button')[0];
+      const viewBtn = rows[0]!.findAll('button')[0]!;
       expect(viewBtn.classes()).toContain('hover:bg-info/10');
     });
 
@@ -250,7 +249,7 @@ describe('MaterialTable.vue (Component Testing)', () => {
       const wrapper = createWrapper({ materials: [createMaterial()] });
 
       const rows = wrapper.findAll('tbody tr');
-      const editBtn = rows[0].findAll('button')[1];
+      const editBtn = rows[0]!.findAll('button')[1]!;
       expect(editBtn.classes()).toContain('hover:bg-primary/10');
     });
   });
@@ -479,7 +478,7 @@ describe('MaterialTable.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 7. EVENT EMISSION — view, edit
+  // 7. EVENT EMISSION — view, edit — ✅ FIX non-null assertion
   // =========================================================================
   describe('Event Emission — view', () => {
     it('[Happy Path] emit "view" dengan payload material', async () => {
@@ -487,7 +486,7 @@ describe('MaterialTable.vue (Component Testing)', () => {
       const wrapper = createWrapper({ materials: [material] });
 
       const rows = wrapper.findAll('tbody tr');
-      const viewBtn = rows[0].findAll('button')[0];
+      const viewBtn = rows[0]!.findAll('button')[0]!;
       await viewBtn.trigger('click');
 
       const emitted = wrapper.emitted('view');
@@ -500,7 +499,7 @@ describe('MaterialTable.vue (Component Testing)', () => {
       const wrapper = createWrapper({ materials: [mat1, mat2] });
 
       const rows = wrapper.findAll('tbody tr');
-      const viewBtnRow2 = rows[1].findAll('button')[0];
+      const viewBtnRow2 = rows[1]!.findAll('button')[0]!;
       await viewBtnRow2.trigger('click');
 
       const emitted = wrapper.emitted('view');
@@ -514,7 +513,7 @@ describe('MaterialTable.vue (Component Testing)', () => {
       const wrapper = createWrapper({ materials: [material] });
 
       const rows = wrapper.findAll('tbody tr');
-      const editBtn = rows[0].findAll('button')[1];
+      const editBtn = rows[0]!.findAll('button')[1]!;
       await editBtn.trigger('click');
 
       const emitted = wrapper.emitted('edit');
@@ -528,7 +527,7 @@ describe('MaterialTable.vue (Component Testing)', () => {
       const wrapper = createWrapper({ materials: [mat1, mat2, mat3] });
 
       const rows = wrapper.findAll('tbody tr');
-      const editBtnRow3 = rows[2].findAll('button')[1];
+      const editBtnRow3 = rows[2]!.findAll('button')[1]!;
       await editBtnRow3.trigger('click');
 
       const emitted = wrapper.emitted('edit');
@@ -648,7 +647,7 @@ describe('MaterialTable.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 10. EDGE CASES & CORNER CASES
+  // 10. EDGE CASES & CORNER CASES — ✅ FIX non-null assertion
   // =========================================================================
   describe('Edge Cases & Corner Cases', () => {
     it('[Edge Case] current_stock string → dikonversi ke number', () => {
@@ -695,10 +694,10 @@ describe('MaterialTable.vue (Component Testing)', () => {
       });
 
       const rows = wrapper.findAll('tbody tr');
-      expect(rows[0].classes()).toContain('opacity-60');     // inactive
-      expect(rows[1].classes()).toContain('bg-error/5');     // out of stock
-      expect(rows[2].classes()).toContain('bg-warning/5');   // low stock
-      expect(rows[3].classes()).not.toContain('opacity-60'); // default
+      expect(rows[0]!.classes()).toContain('opacity-60');     // inactive
+      expect(rows[1]!.classes()).toContain('bg-error/5');     // out of stock
+      expect(rows[2]!.classes()).toContain('bg-warning/5');   // low stock
+      expect(rows[3]!.classes()).not.toContain('opacity-60'); // default
     });
 
     it('[Edge Case] hover:bg-white/40 ada di setiap row', () => {

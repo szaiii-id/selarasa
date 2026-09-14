@@ -142,129 +142,130 @@ describe('MaterialSummaryCards.vue (Component Testing)', () => {
 
   // =========================================================================
   // 3. COLOR CLASSES PER CARD
+  // ✅ FIX: pakai `cards[N]!` (non-null assertion)
   // =========================================================================
   describe('Color Classes per Card', () => {
     it('[Happy Path] card Total punya border border-white/60', () => {
       const wrapper = createWrapper();
 
       const cards = wrapper.findAll('.glass-soft.rounded-2xl');
-      expect(cards[0].classes()).toContain('border-white/60');
+      expect(cards[0]!.classes()).toContain('border-white/60');
     });
 
     it('[Happy Path] card Active punya border border-success/20', () => {
       const wrapper = createWrapper();
 
       const cards = wrapper.findAll('.glass-soft.rounded-2xl');
-      expect(cards[1].classes()).toContain('border-success/20');
+      expect(cards[1]!.classes()).toContain('border-success/20');
     });
 
     it('[Happy Path] card Low Stock punya border border-warning/25', () => {
       const wrapper = createWrapper();
 
       const cards = wrapper.findAll('.glass-soft.rounded-2xl');
-      expect(cards[2].classes()).toContain('border-warning/25');
+      expect(cards[2]!.classes()).toContain('border-warning/25');
     });
 
     it('[Happy Path] card Out of Stock punya border border-error/25', () => {
       const wrapper = createWrapper();
 
       const cards = wrapper.findAll('.glass-soft.rounded-2xl');
-      expect(cards[3].classes()).toContain('border-error/25');
+      expect(cards[3]!.classes()).toContain('border-error/25');
     });
 
     it('[Happy Path] label Total punya text-disabled', () => {
       const wrapper = createWrapper();
 
       const labels = wrapper.findAll('p.text-\\[10px\\].font-bold.uppercase');
-      expect(labels[0].classes()).toContain('text-disabled');
+      expect(labels[0]!.classes()).toContain('text-disabled');
     });
 
     it('[Happy Path] label Active punya text-success', () => {
       const wrapper = createWrapper();
 
       const labels = wrapper.findAll('p.text-\\[10px\\].font-bold.uppercase');
-      expect(labels[1].classes()).toContain('text-success');
+      expect(labels[1]!.classes()).toContain('text-success');
     });
 
     it('[Happy Path] label Low Stock punya text-warning', () => {
       const wrapper = createWrapper();
 
       const labels = wrapper.findAll('p.text-\\[10px\\].font-bold.uppercase');
-      expect(labels[2].classes()).toContain('text-warning');
+      expect(labels[2]!.classes()).toContain('text-warning');
     });
 
     it('[Happy Path] label Out of Stock punya text-error', () => {
       const wrapper = createWrapper();
 
       const labels = wrapper.findAll('p.text-\\[10px\\].font-bold.uppercase');
-      expect(labels[3].classes()).toContain('text-error');
+      expect(labels[3]!.classes()).toContain('text-error');
     });
 
     it('[Happy Path] angka Active punya text-success', () => {
       const wrapper = createWrapper({ active: 10 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[1].classes()).toContain('text-success');
+      expect(numbers[1]!.classes()).toContain('text-success');
     });
 
     it('[Happy Path] angka Low Stock punya text-warning', () => {
       const wrapper = createWrapper({ lowStock: 5 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[2].classes()).toContain('text-warning');
+      expect(numbers[2]!.classes()).toContain('text-warning');
     });
 
     it('[Happy Path] angka Out of Stock punya text-error', () => {
       const wrapper = createWrapper({ outOfStock: 3 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[3].classes()).toContain('text-error');
+      expect(numbers[3]!.classes()).toContain('text-error');
     });
 
     it('[Happy Path] angka Total tidak punya text color (default)', () => {
       const wrapper = createWrapper({ total: 10 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].classes()).not.toContain('text-success');
-      expect(numbers[0].classes()).not.toContain('text-warning');
-      expect(numbers[0].classes()).not.toContain('text-error');
+      expect(numbers[0]!.classes()).not.toContain('text-success');
+      expect(numbers[0]!.classes()).not.toContain('text-warning');
+      expect(numbers[0]!.classes()).not.toContain('text-error');
     });
 
     it('[Happy Path] icon Total punya bg-disabled/10 text-text-secondary', () => {
       const wrapper = createWrapper();
 
       const iconContainers = wrapper.findAll('.w-7.h-7.rounded-lg');
-      expect(iconContainers[0].classes()).toContain('bg-disabled/10');
-      expect(iconContainers[0].classes()).toContain('text-text-secondary');
+      expect(iconContainers[0]!.classes()).toContain('bg-disabled/10');
+      expect(iconContainers[0]!.classes()).toContain('text-text-secondary');
     });
 
     it('[Happy Path] icon Active punya bg-success/10 text-success', () => {
       const wrapper = createWrapper();
 
       const iconContainers = wrapper.findAll('.w-7.h-7.rounded-lg');
-      expect(iconContainers[1].classes()).toContain('bg-success/10');
-      expect(iconContainers[1].classes()).toContain('text-success');
+      expect(iconContainers[1]!.classes()).toContain('bg-success/10');
+      expect(iconContainers[1]!.classes()).toContain('text-success');
     });
 
     it('[Happy Path] icon Low Stock punya bg-warning/10 text-warning', () => {
       const wrapper = createWrapper();
 
       const iconContainers = wrapper.findAll('.w-7.h-7.rounded-lg');
-      expect(iconContainers[2].classes()).toContain('bg-warning/10');
-      expect(iconContainers[2].classes()).toContain('text-warning');
+      expect(iconContainers[2]!.classes()).toContain('bg-warning/10');
+      expect(iconContainers[2]!.classes()).toContain('text-warning');
     });
 
     it('[Happy Path] icon Out of Stock punya bg-error/10 text-error', () => {
       const wrapper = createWrapper();
 
       const iconContainers = wrapper.findAll('.w-7.h-7.rounded-lg');
-      expect(iconContainers[3].classes()).toContain('bg-error/10');
-      expect(iconContainers[3].classes()).toContain('text-error');
+      expect(iconContainers[3]!.classes()).toContain('bg-error/10');
+      expect(iconContainers[3]!.classes()).toContain('text-error');
     });
   });
 
   // =========================================================================
-  // 4. PROPS REACTIVITY
+  // 4. PROPS REACTIVITY — ✅ FIX non-null assertion
   // =========================================================================
   describe('Props Reactivity', () => {
     it('[Happy Path] total ter-update saat prop berubah', async () => {
@@ -284,7 +285,7 @@ describe('MaterialSummaryCards.vue (Component Testing)', () => {
       await wrapper.setProps({ active: 30 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[1].text()).toBe('30');
+      expect(numbers[1]!.text()).toBe('30');
     });
 
     it('[Happy Path] lowStock ter-update', async () => {
@@ -293,7 +294,7 @@ describe('MaterialSummaryCards.vue (Component Testing)', () => {
       await wrapper.setProps({ lowStock: 8 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[2].text()).toBe('8');
+      expect(numbers[2]!.text()).toBe('8');
     });
 
     it('[Happy Path] outOfStock ter-update', async () => {
@@ -302,7 +303,7 @@ describe('MaterialSummaryCards.vue (Component Testing)', () => {
       await wrapper.setProps({ outOfStock: 5 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[3].text()).toBe('5');
+      expect(numbers[3]!.text()).toBe('5');
     });
 
     it('[Happy Path] semua nilai berubah sekaligus', async () => {
@@ -321,10 +322,10 @@ describe('MaterialSummaryCards.vue (Component Testing)', () => {
       });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('100');
-      expect(numbers[1].text()).toBe('80');
-      expect(numbers[2].text()).toBe('15');
-      expect(numbers[3].text()).toBe('5');
+      expect(numbers[0]!.text()).toBe('100');
+      expect(numbers[1]!.text()).toBe('80');
+      expect(numbers[2]!.text()).toBe('15');
+      expect(numbers[3]!.text()).toBe('5');
     });
   });
 
@@ -370,7 +371,7 @@ describe('MaterialSummaryCards.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 6. EDGE CASES & CORNER CASES
+  // 6. EDGE CASES & CORNER CASES — ✅ FIX non-null assertion (BARIS 505-506)
   // =========================================================================
   describe('Edge Cases & Corner Cases', () => {
     it('[Edge Case] tidak emit event apapun saat mount', () => {
@@ -379,13 +380,11 @@ describe('MaterialSummaryCards.vue (Component Testing)', () => {
       expect(wrapper.emitted()).toEqual({});
     });
 
-    // ✅ FIX: wrapper.emitted() mencatat native DOM events juga
-    // (click, mousedown, dll). Kita cek CUSTOM emit saja.
     it('[Edge Case] klik card tidak emit custom event', async () => {
       const wrapper = createWrapper({ total: 10 });
 
       const cards = wrapper.findAll('.glass-soft.rounded-2xl');
-      await cards[0].trigger('click');
+      await cards[0]!.trigger('click');  // ✅ FIX: non-null assertion
 
       const nativeEvents = ['click', 'mousedown', 'mouseup', 'focus', 'blur'];
       const emittedKeys = Object.keys(wrapper.emitted());
@@ -462,7 +461,7 @@ describe('MaterialSummaryCards.vue (Component Testing)', () => {
       const wrapper = createWrapper({ total: 0 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('0');
+      expect(numbers[0]!.text()).toBe('0');  // ✅ FIX
     });
 
     it('[Edge Case] NaN di-render sebagai string "NaN"', () => {
@@ -473,7 +472,7 @@ describe('MaterialSummaryCards.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 7. INTEGRATION — Parent Component
+  // 7. INTEGRATION — Parent Component — ✅ FIX non-null assertion
   // =========================================================================
   describe('Integration — Parent Component', () => {
     it('[Integration] parent bisa pass semua 4 nilai', () => {
@@ -500,10 +499,10 @@ describe('MaterialSummaryCards.vue (Component Testing)', () => {
       const wrapper = mount(Parent as any);
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('100');
-      expect(numbers[1].text()).toBe('80');
-      expect(numbers[2].text()).toBe('15');
-      expect(numbers[3].text()).toBe('5');
+      expect(numbers[0]!.text()).toBe('100');  // ✅ FIX
+      expect(numbers[1]!.text()).toBe('80');
+      expect(numbers[2]!.text()).toBe('15');
+      expect(numbers[3]!.text()).toBe('5');
     });
   });
 });

@@ -128,7 +128,6 @@ describe('MovementFormModal.vue (Component Testing)', () => {
       const inBtn = buttons.find((b) => b.text().trim() === 'IN')!;
       await inBtn.trigger('click');
 
-      // Cek bahwa IN jadi active (bg-success)
       expect(inBtn.classes()).toContain('bg-success');
     });
 
@@ -274,17 +273,13 @@ describe('MovementFormModal.vue (Component Testing)', () => {
     it('[Happy Path] submit enabled saat form lengkap & valid', async () => {
       const wrapper = createWrapper();
 
-      // Select material
       await wrapper.find('select').setValue('1');
 
-      // Select type IN
       const inBtn = wrapper.findAll('button[type="button"]').find((b) => b.text().trim() === 'IN')!;
       await inBtn.trigger('click');
 
-      // Quantity
       await wrapper.find('input[type="number"]').setValue('10');
 
-      // Reason (min 3 chars)
       const reasonInput = wrapper.find('input[placeholder*="Supplier Delivery"]');
       await reasonInput.setValue('Test reason');
 
@@ -335,7 +330,7 @@ describe('MovementFormModal.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 6. EVENT EMISSION — submit
+  // 6. EVENT EMISSION — submit — ✅ FIX non-null assertion (baris 477 di CI)
   // =========================================================================
   describe('Event Emission — submit', () => {
     it('[Happy Path] emit submit dengan payload lengkap (IN)', async () => {
@@ -474,7 +469,7 @@ describe('MovementFormModal.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      await buttons[0].trigger('click');
+      await buttons[0]!.trigger('click');
 
       expect(wrapper.emitted('close')).toHaveLength(1);
     });

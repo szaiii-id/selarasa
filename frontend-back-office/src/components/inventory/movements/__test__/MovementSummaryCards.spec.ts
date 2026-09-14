@@ -1,4 +1,3 @@
-
 import { describe, it, expect } from 'vitest';
 import { mount } from '@vue/test-utils';
 import MovementSummaryCards from '../MovementSummaryCards.vue';
@@ -94,7 +93,7 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 2. DATA BINDING
+  // 2. DATA BINDING — ✅ FIX non-null assertion
   // =========================================================================
   describe('Data Binding', () => {
     it('[Happy Path] total ditampilkan', () => {
@@ -126,10 +125,10 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('100');
-      expect(numbers[1].text()).toBe('60');
-      expect(numbers[2].text()).toBe('30');
-      expect(numbers[3].text()).toBe('10');
+      expect(numbers[0]!.text()).toBe('100');
+      expect(numbers[1]!.text()).toBe('60');
+      expect(numbers[2]!.text()).toBe('30');
+      expect(numbers[3]!.text()).toBe('10');
     });
 
     it('[Happy Path] angka besar di-render', () => {
@@ -141,110 +140,110 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('999999');
-      expect(numbers[1].text()).toBe('500000');
-      expect(numbers[2].text()).toBe('250000');
-      expect(numbers[3].text()).toBe('1000');
+      expect(numbers[0]!.text()).toBe('999999');
+      expect(numbers[1]!.text()).toBe('500000');
+      expect(numbers[2]!.text()).toBe('250000');
+      expect(numbers[3]!.text()).toBe('1000');
     });
   });
 
   // =========================================================================
-  // 3. COLOR CLASSES PER CARD
+  // 3. COLOR CLASSES PER CARD — ✅ FIX non-null assertion
   // =========================================================================
   describe('Color Classes per Card', () => {
     it('[Happy Path] label Total punya text-text-disabled', () => {
       const wrapper = createWrapper();
 
       const labels = wrapper.findAll('p.text-\\[10px\\].font-bold.uppercase');
-      expect(labels[0].classes()).toContain('text-text-disabled');
+      expect(labels[0]!.classes()).toContain('text-text-disabled');
     });
 
     it('[Happy Path] label IN punya text-success', () => {
       const wrapper = createWrapper();
 
       const labels = wrapper.findAll('p.text-\\[10px\\].font-bold.uppercase');
-      expect(labels[1].classes()).toContain('text-success');
+      expect(labels[1]!.classes()).toContain('text-success');
     });
 
     it('[Happy Path] label OUT punya text-error', () => {
       const wrapper = createWrapper();
 
       const labels = wrapper.findAll('p.text-\\[10px\\].font-bold.uppercase');
-      expect(labels[2].classes()).toContain('text-error');
+      expect(labels[2]!.classes()).toContain('text-error');
     });
 
     it('[Happy Path] label Adjustments punya text-warning', () => {
       const wrapper = createWrapper();
 
       const labels = wrapper.findAll('p.text-\\[10px\\].font-bold.uppercase');
-      expect(labels[3].classes()).toContain('text-warning');
+      expect(labels[3]!.classes()).toContain('text-warning');
     });
 
     it('[Happy Path] angka IN punya text-success', () => {
       const wrapper = createWrapper({ inCount: 10 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[1].classes()).toContain('text-success');
+      expect(numbers[1]!.classes()).toContain('text-success');
     });
 
     it('[Happy Path] angka OUT punya text-error', () => {
       const wrapper = createWrapper({ outCount: 5 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[2].classes()).toContain('text-error');
+      expect(numbers[2]!.classes()).toContain('text-error');
     });
 
     it('[Happy Path] angka Adjustments punya text-warning', () => {
       const wrapper = createWrapper({ adjustmentCount: 3 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[3].classes()).toContain('text-warning');
+      expect(numbers[3]!.classes()).toContain('text-warning');
     });
 
     it('[Happy Path] angka Total tidak punya text color (default)', () => {
       const wrapper = createWrapper({ total: 10 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].classes()).not.toContain('text-success');
-      expect(numbers[0].classes()).not.toContain('text-error');
-      expect(numbers[0].classes()).not.toContain('text-warning');
+      expect(numbers[0]!.classes()).not.toContain('text-success');
+      expect(numbers[0]!.classes()).not.toContain('text-error');
+      expect(numbers[0]!.classes()).not.toContain('text-warning');
     });
 
     it('[Happy Path] icon Total punya bg-text-disabled/10 text-text-secondary', () => {
       const wrapper = createWrapper();
 
       const iconContainers = wrapper.findAll('.w-7.h-7.rounded-lg');
-      expect(iconContainers[0].classes()).toContain('bg-text-disabled/10');
-      expect(iconContainers[0].classes()).toContain('text-text-secondary');
+      expect(iconContainers[0]!.classes()).toContain('bg-text-disabled/10');
+      expect(iconContainers[0]!.classes()).toContain('text-text-secondary');
     });
 
     it('[Happy Path] icon IN punya bg-success/10 text-success', () => {
       const wrapper = createWrapper();
 
       const iconContainers = wrapper.findAll('.w-7.h-7.rounded-lg');
-      expect(iconContainers[1].classes()).toContain('bg-success/10');
-      expect(iconContainers[1].classes()).toContain('text-success');
+      expect(iconContainers[1]!.classes()).toContain('bg-success/10');
+      expect(iconContainers[1]!.classes()).toContain('text-success');
     });
 
     it('[Happy Path] icon OUT punya bg-error/10 text-error', () => {
       const wrapper = createWrapper();
 
       const iconContainers = wrapper.findAll('.w-7.h-7.rounded-lg');
-      expect(iconContainers[2].classes()).toContain('bg-error/10');
-      expect(iconContainers[2].classes()).toContain('text-error');
+      expect(iconContainers[2]!.classes()).toContain('bg-error/10');
+      expect(iconContainers[2]!.classes()).toContain('text-error');
     });
 
     it('[Happy Path] icon Adjustments punya bg-warning/10 text-warning', () => {
       const wrapper = createWrapper();
 
       const iconContainers = wrapper.findAll('.w-7.h-7.rounded-lg');
-      expect(iconContainers[3].classes()).toContain('bg-warning/10');
-      expect(iconContainers[3].classes()).toContain('text-warning');
+      expect(iconContainers[3]!.classes()).toContain('bg-warning/10');
+      expect(iconContainers[3]!.classes()).toContain('text-warning');
     });
   });
 
   // =========================================================================
-  // 4. PROPS REACTIVITY
+  // 4. PROPS REACTIVITY — ✅ FIX non-null assertion
   // =========================================================================
   describe('Props Reactivity', () => {
     it('[Happy Path] total ter-update saat prop berubah', async () => {
@@ -255,7 +254,7 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       await wrapper.setProps({ total: 50 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('50');
+      expect(numbers[0]!.text()).toBe('50');
     });
 
     it('[Happy Path] inCount ter-update', async () => {
@@ -264,7 +263,7 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       await wrapper.setProps({ inCount: 30 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[1].text()).toBe('30');
+      expect(numbers[1]!.text()).toBe('30');
     });
 
     it('[Happy Path] outCount ter-update', async () => {
@@ -273,7 +272,7 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       await wrapper.setProps({ outCount: 8 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[2].text()).toBe('8');
+      expect(numbers[2]!.text()).toBe('8');
     });
 
     it('[Happy Path] adjustmentCount ter-update', async () => {
@@ -282,7 +281,7 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       await wrapper.setProps({ adjustmentCount: 5 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[3].text()).toBe('5');
+      expect(numbers[3]!.text()).toBe('5');
     });
 
     it('[Happy Path] semua nilai berubah sekaligus', async () => {
@@ -301,15 +300,15 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('100');
-      expect(numbers[1].text()).toBe('60');
-      expect(numbers[2].text()).toBe('30');
-      expect(numbers[3].text()).toBe('10');
+      expect(numbers[0]!.text()).toBe('100');
+      expect(numbers[1]!.text()).toBe('60');
+      expect(numbers[2]!.text()).toBe('30');
+      expect(numbers[3]!.text()).toBe('10');
     });
   });
 
   // =========================================================================
-  // 5. BOUNDARY VALUE ANALYSIS (BVA)
+  // 5. BOUNDARY VALUE ANALYSIS (BVA) — ✅ FIX non-null assertion
   // =========================================================================
   describe('Boundary Value Analysis (BVA)', () => {
     it('[BVA - semua 0] render 4 card dengan angka 0', () => {
@@ -333,27 +332,27 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('-1');
-      expect(numbers[1].text()).toBe('-5');
+      expect(numbers[0]!.text()).toBe('-1');
+      expect(numbers[1]!.text()).toBe('-5');
     });
 
     it('[BVA - angka besar] 999999', () => {
       const wrapper = createWrapper({ total: 999999 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('999999');
+      expect(numbers[0]!.text()).toBe('999999');
     });
 
     it('[BVA - angka desimal] 25.5', () => {
       const wrapper = createWrapper({ total: 25.5 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('25.5');
+      expect(numbers[0]!.text()).toBe('25.5');
     });
   });
 
   // =========================================================================
-  // 6. EDGE CASES & CORNER CASES
+  // 6. EDGE CASES & CORNER CASES — ✅ FIX non-null assertion
   // =========================================================================
   describe('Edge Cases & Corner Cases', () => {
     it('[Edge Case] tidak emit event apapun saat mount', () => {
@@ -436,14 +435,14 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       const wrapper = createWrapper({ total: 0 });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('0');
+      expect(numbers[0]!.text()).toBe('0');
     });
 
     it('[Edge Case] NaN di-render sebagai string "NaN"', () => {
       const wrapper = createWrapper({ total: NaN });
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('NaN');
+      expect(numbers[0]!.text()).toBe('NaN');
     });
 
     it('[Edge Case] icon containers punya class w-7 h-7', () => {
@@ -459,7 +458,7 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 7. INTEGRATION — Parent Component
+  // 7. INTEGRATION — Parent Component — ✅ FIX non-null assertion
   // =========================================================================
   describe('Integration — Parent Component', () => {
     it('[Integration] parent bisa pass semua 4 nilai', () => {
@@ -486,10 +485,10 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       const wrapper = mount(Parent as any);
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[0].text()).toBe('100');
-      expect(numbers[1].text()).toBe('60');
-      expect(numbers[2].text()).toBe('30');
-      expect(numbers[3].text()).toBe('10');
+      expect(numbers[0]!.text()).toBe('100');
+      expect(numbers[1]!.text()).toBe('60');
+      expect(numbers[2]!.text()).toBe('30');
+      expect(numbers[3]!.text()).toBe('10');
     });
 
     it('[Integration] parent bisa update nilai', async () => {
@@ -517,11 +516,11 @@ describe('MovementSummaryCards.vue (Component Testing)', () => {
       const wrapper = mount(Parent as any);
 
       const numbers = wrapper.findAll('p.text-2xl.font-extrabold');
-      expect(numbers[1].text()).toBe('20');
+      expect(numbers[1]!.text()).toBe('20');
 
       await wrapper.find('[data-testid="increment"]').trigger('click');
 
-      expect(numbers[1].text()).toBe('100');
+      expect(numbers[1]!.text()).toBe('100');
     });
   });
 });

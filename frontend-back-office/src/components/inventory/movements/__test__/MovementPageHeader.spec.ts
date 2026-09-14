@@ -208,6 +208,7 @@ describe('MovementPageHeader.vue (Component Testing)', () => {
 
   // =========================================================================
   // 4. INTEGRATION — Parent Component
+  // ✅ FIX TS2339: explicit type untuk data() & methods this
   // =========================================================================
   describe('Integration — Parent Component', () => {
     it('[Integration] parent bisa handle event add', async () => {
@@ -217,11 +218,13 @@ describe('MovementPageHeader.vue (Component Testing)', () => {
           <MovementPageHeader @add="handleAdd" />
           <span data-testid="clicked">{{ clicked ? 'yes' : 'no' }}</span>
         `,
-        data() {
+        // ✅ FIX: explicit return type untuk data()
+        data(): { clicked: boolean } {
           return { clicked: false };
         },
         methods: {
-          handleAdd() {
+          // ✅ FIX: explicit `this` type untuk methods
+          handleAdd(this: { clicked: boolean }) {
             this.clicked = true;
           },
         },
@@ -243,7 +246,8 @@ describe('MovementPageHeader.vue (Component Testing)', () => {
           <MovementPageHeader @add="isModalOpen = true" />
           <span data-testid="modal">{{ isModalOpen ? 'open' : 'closed' }}</span>
         `,
-        data() {
+        // ✅ FIX: explicit return type untuk data()
+        data(): { isModalOpen: boolean } {
           return { isModalOpen: false };
         },
       };
@@ -278,7 +282,6 @@ describe('MovementPageHeader.vue (Component Testing)', () => {
     it('[A11y] icon dekoratif di tombol tidak mengganggu screen reader', () => {
       const wrapper = createWrapper();
 
-      // Icon SVG biasanya dekoratif, SVG tidak perlu aria-label
       const button = wrapper.find('button');
       const svg = button.find('svg');
       expect(svg.exists()).toBe(true);

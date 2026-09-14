@@ -93,7 +93,6 @@ describe('MaterialViewDrawer.vue (Component Testing)', () => {
 
     it('[Happy Path] render 2 info note SVG', () => {
       const wrapper = createWrapper();
-      // Info note "To see the full movement history..." punya SVG
       expect(wrapper.findAll('svg').length).toBeGreaterThanOrEqual(2);
     });
 
@@ -243,7 +242,6 @@ describe('MaterialViewDrawer.vue (Component Testing)', () => {
       });
 
       const text = wrapper.text();
-      // Unit muncul beberapa kali
       expect(text).toContain('kg');
     });
 
@@ -361,14 +359,14 @@ describe('MaterialViewDrawer.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 6. EVENT EMISSION — close
+  // 6. EVENT EMISSION — close — ✅ FIX non-null assertion (line 372)
   // =========================================================================
   describe('Event Emission — close', () => {
     it('[Happy Path] emit "close" saat klik tombol X', async () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      const closeBtn = buttons[0];
+      const closeBtn = buttons[0]!;
       await closeBtn.trigger('click');
 
       expect(wrapper.emitted('close')).toBeTruthy();
@@ -615,14 +613,13 @@ describe('MaterialViewDrawer.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      expect(buttons.length).toBeGreaterThanOrEqual(2); // X + Edit
+      expect(buttons.length).toBeGreaterThanOrEqual(2);
     });
 
     it('[Corner Case] klik backdrop dengan self modifier', async () => {
       const wrapper = createWrapper();
 
       const backdrop = wrapper.find('.fixed');
-      // Trigger click dengan target = backdrop
       await backdrop.trigger('click');
 
       expect(wrapper.emitted('close')).toHaveLength(1);
@@ -636,7 +633,6 @@ describe('MaterialViewDrawer.vue (Component Testing)', () => {
         }),
       });
 
-      // Header tidak boleh render "· null"
       const headerText = wrapper.find('h3').element.parentElement?.textContent || '';
       expect(headerText).not.toContain('· null');
     });
@@ -644,6 +640,8 @@ describe('MaterialViewDrawer.vue (Component Testing)', () => {
 
   // =========================================================================
   // 11. INTEGRATION — Parent Component
+  // ✅ FIX: explicit type untuk data + cast `this` sebagai any
+  // (line 684-685 TS2339)
   // =========================================================================
   describe('Integration — Parent Component', () => {
     it('[Integration] parent handle close & edit event', async () => {
@@ -659,7 +657,8 @@ describe('MaterialViewDrawer.vue (Component Testing)', () => {
           <span data-testid="open">{{ isOpen }}</span>
           <span data-testid="edited">{{ edited ? 'yes' : 'no' }}</span>
         `,
-        data() {
+        data(): { isOpen: boolean; edited: boolean; material: any } {
+          // ✅ FIX: explicit return type
           return {
             isOpen: true,
             edited: false,
@@ -680,7 +679,8 @@ describe('MaterialViewDrawer.vue (Component Testing)', () => {
           };
         },
         methods: {
-          handleEdit() {
+          handleEdit(this: { edited: boolean; isOpen: boolean }) {
+            // ✅ FIX: explicit `this` type
             this.edited = true;
             this.isOpen = false;
           },
@@ -705,4 +705,4 @@ describe('MaterialViewDrawer.vue (Component Testing)', () => {
       expect(wrapper.find('[data-testid="open"]').text()).toBe('false');
     });
   });
-}); 
+});

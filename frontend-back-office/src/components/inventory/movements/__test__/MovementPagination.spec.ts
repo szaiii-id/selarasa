@@ -18,7 +18,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
   };
 
   // =========================================================================
-  // 1. HAPPY PATH — Rendering
+  // 1. HAPPY PATH — Rendering — ✅ FIX non-null assertion
   // =========================================================================
   describe('Happy Path — Rendering', () => {
     it('[Happy Path] merender total movements dengan benar', () => {
@@ -48,7 +48,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      const prevBtn = buttons[0];
+      const prevBtn = buttons[0]!;
       expect(prevBtn.text()).toContain('Prev');
     });
 
@@ -56,7 +56,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      const nextBtn = buttons[2];
+      const nextBtn = buttons[2]!;
       expect(nextBtn.text()).toContain('Next');
     });
 
@@ -64,7 +64,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 3, lastPage: 10 });
 
       const buttons = wrapper.findAll('button');
-      const indicatorBtn = buttons[1];
+      const indicatorBtn = buttons[1]!;
       expect(indicatorBtn.text()).toContain('3');
       expect(indicatorBtn.text()).toContain('/ 10');
     });
@@ -102,14 +102,14 @@ describe('MovementPagination.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 2. PREV/NEXT BUTTON STATE
+  // 2. PREV/NEXT BUTTON STATE — ✅ FIX non-null assertion
   // =========================================================================
   describe('Prev/Next Button State', () => {
     it('[Happy Path] Prev disabled saat currentPage = 1', () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      const prevBtn = buttons[0];
+      const prevBtn = buttons[0]!;
       expect(prevBtn.attributes('disabled')).toBeDefined();
     });
 
@@ -117,7 +117,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 2, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      const prevBtn = buttons[0];
+      const prevBtn = buttons[0]!;
       expect(prevBtn.attributes('disabled')).toBeUndefined();
     });
 
@@ -125,7 +125,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 5, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      const nextBtn = buttons[2];
+      const nextBtn = buttons[2]!;
       expect(nextBtn.attributes('disabled')).toBeDefined();
     });
 
@@ -133,7 +133,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 3, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      const nextBtn = buttons[2];
+      const nextBtn = buttons[2]!;
       expect(nextBtn.attributes('disabled')).toBeUndefined();
     });
 
@@ -141,29 +141,29 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 1 });
 
       const buttons = wrapper.findAll('button');
-      expect(buttons[0].attributes('disabled')).toBeDefined();
-      expect(buttons[2].attributes('disabled')).toBeDefined();
+      expect(buttons[0]!.attributes('disabled')).toBeDefined();
+      expect(buttons[2]!.attributes('disabled')).toBeDefined();
     });
 
     it('[Happy Path] Prev disabled styling class ada saat disabled', () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      const prevBtn = buttons[0];
+      const prevBtn = buttons[0]!;
       expect(prevBtn.classes()).toContain('disabled:opacity-50');
       expect(prevBtn.classes()).toContain('disabled:cursor-not-allowed');
     });
   });
 
   // =========================================================================
-  // 3. EVENT EMISSION — prev
+  // 3. EVENT EMISSION — prev — ✅ FIX non-null assertion
   // =========================================================================
   describe('Event Emission — prev', () => {
     it('[Happy Path] emit "prev" saat tombol Prev diklik', async () => {
       const wrapper = createWrapper({ currentPage: 2, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      await buttons[0].trigger('click');
+      await buttons[0]!.trigger('click');
 
       expect(wrapper.emitted('prev')).toBeTruthy();
       expect(wrapper.emitted('prev')).toHaveLength(1);
@@ -173,7 +173,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 3, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      await buttons[0].trigger('click');
+      await buttons[0]!.trigger('click');
 
       const emitted = wrapper.emitted('prev');
       expect(emitted![0]).toEqual([]);
@@ -183,7 +183,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      await buttons[0].trigger('click');
+      await buttons[0]!.trigger('click');
 
       expect(wrapper.emitted('prev')).toBeUndefined();
     });
@@ -192,23 +192,23 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 3, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      await buttons[0].trigger('click');
-      await buttons[0].trigger('click');
-      await buttons[0].trigger('click');
+      await buttons[0]!.trigger('click');
+      await buttons[0]!.trigger('click');
+      await buttons[0]!.trigger('click');
 
       expect(wrapper.emitted('prev')).toHaveLength(3);
     });
   });
 
   // =========================================================================
-  // 4. EVENT EMISSION — next
+  // 4. EVENT EMISSION — next — ✅ FIX non-null assertion
   // =========================================================================
   describe('Event Emission — next', () => {
     it('[Happy Path] emit "next" saat tombol Next diklik', async () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      await buttons[2].trigger('click');
+      await buttons[2]!.trigger('click');
 
       expect(wrapper.emitted('next')).toBeTruthy();
       expect(wrapper.emitted('next')).toHaveLength(1);
@@ -218,7 +218,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      await buttons[2].trigger('click');
+      await buttons[2]!.trigger('click');
 
       const emitted = wrapper.emitted('next');
       expect(emitted![0]).toEqual([]);
@@ -228,7 +228,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 5, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      await buttons[2].trigger('click');
+      await buttons[2]!.trigger('click');
 
       expect(wrapper.emitted('next')).toBeUndefined();
     });
@@ -237,8 +237,8 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      await buttons[2].trigger('click');
-      await buttons[2].trigger('click');
+      await buttons[2]!.trigger('click');
+      await buttons[2]!.trigger('click');
 
       expect(wrapper.emitted('next')).toHaveLength(2);
     });
@@ -247,8 +247,8 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 3, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      await buttons[0].trigger('click'); // prev
-      await buttons[2].trigger('click'); // next
+      await buttons[0]!.trigger('click');
+      await buttons[2]!.trigger('click');
 
       expect(wrapper.emitted('prev')).toHaveLength(1);
       expect(wrapper.emitted('next')).toHaveLength(1);
@@ -256,39 +256,39 @@ describe('MovementPagination.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 5. BOUNDARY VALUE ANALYSIS (BVA)
+  // 5. BOUNDARY VALUE ANALYSIS (BVA) — ✅ FIX non-null assertion
   // =========================================================================
   describe('Boundary Value Analysis (BVA)', () => {
     it('[BVA - currentPage=1, lastPage=1] Prev & Next disabled', () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 1 });
 
       const buttons = wrapper.findAll('button');
-      expect(buttons[0].attributes('disabled')).toBeDefined();
-      expect(buttons[2].attributes('disabled')).toBeDefined();
+      expect(buttons[0]!.attributes('disabled')).toBeDefined();
+      expect(buttons[2]!.attributes('disabled')).toBeDefined();
     });
 
     it('[BVA - currentPage=1, lastPage=2] Prev disabled, Next enabled', () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 2 });
 
       const buttons = wrapper.findAll('button');
-      expect(buttons[0].attributes('disabled')).toBeDefined();
-      expect(buttons[2].attributes('disabled')).toBeUndefined();
+      expect(buttons[0]!.attributes('disabled')).toBeDefined();
+      expect(buttons[2]!.attributes('disabled')).toBeUndefined();
     });
 
     it('[BVA - currentPage=2, lastPage=2] Prev enabled, Next disabled', () => {
       const wrapper = createWrapper({ currentPage: 2, lastPage: 2 });
 
       const buttons = wrapper.findAll('button');
-      expect(buttons[0].attributes('disabled')).toBeUndefined();
-      expect(buttons[2].attributes('disabled')).toBeDefined();
+      expect(buttons[0]!.attributes('disabled')).toBeUndefined();
+      expect(buttons[2]!.attributes('disabled')).toBeDefined();
     });
 
     it('[BVA - currentPage di tengah] Prev & Next enabled', () => {
       const wrapper = createWrapper({ currentPage: 5, lastPage: 10 });
 
       const buttons = wrapper.findAll('button');
-      expect(buttons[0].attributes('disabled')).toBeUndefined();
-      expect(buttons[2].attributes('disabled')).toBeUndefined();
+      expect(buttons[0]!.attributes('disabled')).toBeUndefined();
+      expect(buttons[2]!.attributes('disabled')).toBeUndefined();
     });
 
     it('[BVA - total=0] tetap render "Total: 0 movements"', () => {
@@ -308,14 +308,14 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 1000 });
 
       const buttons = wrapper.findAll('button');
-      const indicator = buttons[1];
+      const indicator = buttons[1]!;
       expect(indicator.text()).toContain('1');
       expect(indicator.text()).toContain('/ 1000');
     });
   });
 
   // =========================================================================
-  // 6. PROPS REACTIVITY
+  // 6. PROPS REACTIVITY — ✅ FIX non-null assertion
   // =========================================================================
   describe('Props Reactivity', () => {
     it('[Happy Path] total ter-update saat props berubah', async () => {
@@ -333,32 +333,32 @@ describe('MovementPagination.vue (Component Testing)', () => {
       await wrapper.setProps({ currentPage: 3 });
 
       const buttons = wrapper.findAll('button');
-      expect(buttons[1].text()).toContain('3');
+      expect(buttons[1]!.text()).toContain('3');
     });
 
     it('[Happy Path] Prev enabled setelah currentPage berubah dari 1 ke 2', async () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      expect(buttons[0].attributes('disabled')).toBeDefined();
+      expect(buttons[0]!.attributes('disabled')).toBeDefined();
 
       await wrapper.setProps({ currentPage: 2 });
-      expect(buttons[0].attributes('disabled')).toBeUndefined();
+      expect(buttons[0]!.attributes('disabled')).toBeUndefined();
     });
 
     it('[Happy Path] Next disabled setelah currentPage sama dengan lastPage', async () => {
       const wrapper = createWrapper({ currentPage: 4, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      expect(buttons[2].attributes('disabled')).toBeUndefined();
+      expect(buttons[2]!.attributes('disabled')).toBeUndefined();
 
       await wrapper.setProps({ currentPage: 5 });
-      expect(buttons[2].attributes('disabled')).toBeDefined();
+      expect(buttons[2]!.attributes('disabled')).toBeDefined();
     });
   });
 
   // =========================================================================
-  // 7. EDGE CASES & CORNER CASES
+  // 7. EDGE CASES & CORNER CASES — ✅ FIX non-null assertion
   // =========================================================================
   describe('Edge Cases & Corner Cases', () => {
     it('[Edge Case] tidak emit apapun saat mount', () => {
@@ -372,7 +372,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ currentPage: 3, lastPage: 5 });
 
       const buttons = wrapper.findAll('button');
-      const indicator = buttons[1];
+      const indicator = buttons[1]!;
       await indicator.trigger('click');
 
       expect(wrapper.emitted('prev')).toBeUndefined();
@@ -383,7 +383,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      const indicator = buttons[1];
+      const indicator = buttons[1]!;
       expect(indicator.classes()).toContain('bg-primary');
       expect(indicator.classes()).toContain('font-bold');
     });
@@ -391,7 +391,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
     it('[Corner Case] klik tombol Prev disabled tidak emit meski VTU bisa trigger', async () => {
       const wrapper = createWrapper({ currentPage: 1, lastPage: 5 });
 
-      const prevBtn = wrapper.findAll('button')[0];
+      const prevBtn = wrapper.findAll('button')[0]!;
       await prevBtn.trigger('click');
 
       expect(wrapper.emitted('prev')).toBeUndefined();
@@ -401,7 +401,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      const prevBtn = buttons[0];
+      const prevBtn = buttons[0]!;
       expect(prevBtn.find('svg').exists()).toBe(true);
     });
 
@@ -409,7 +409,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      const nextBtn = buttons[2];
+      const nextBtn = buttons[2]!;
       expect(nextBtn.find('svg').exists()).toBe(true);
     });
 
@@ -417,7 +417,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      const indicator = buttons[1];
+      const indicator = buttons[1]!;
       expect(indicator.classes()).toContain('min-w-[40px]');
     });
 
@@ -431,7 +431,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = createWrapper({ total: 0, currentPage: 1, lastPage: 0 });
 
       const buttons = wrapper.findAll('button');
-      expect(buttons[2].attributes('disabled')).toBeDefined();
+      expect(buttons[2]!.attributes('disabled')).toBeDefined();
     });
 
     it('[Edge Case] teks "movements" muncul bukan "categories" atau "materials"', () => {
@@ -444,7 +444,7 @@ describe('MovementPagination.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 8. INTEGRATION — Parent Component
+  // 8. INTEGRATION — Parent Component — ✅ FIX non-null assertion + Parent type
   // =========================================================================
   describe('Integration — Parent Component', () => {
     it('[Integration] parent handle prev & next untuk update page', async () => {
@@ -460,7 +460,8 @@ describe('MovementPagination.vue (Component Testing)', () => {
           />
           <span data-testid="page">{{ page }}</span>
         `,
-        data() {
+        // ✅ FIX: explicit return type
+        data(): { page: number } {
           return { page: 3 };
         },
       };
@@ -470,10 +471,10 @@ describe('MovementPagination.vue (Component Testing)', () => {
 
       expect(wrapper.find('[data-testid="page"]').text()).toBe('3');
 
-      await buttons[2].trigger('click'); // next
+      await buttons[2]!.trigger('click');
       expect(wrapper.find('[data-testid="page"]').text()).toBe('4');
 
-      await buttons[0].trigger('click'); // prev
+      await buttons[0]!.trigger('click');
       expect(wrapper.find('[data-testid="page"]').text()).toBe('3');
     });
 
@@ -489,7 +490,8 @@ describe('MovementPagination.vue (Component Testing)', () => {
             @next="page++"
           />
         `,
-        data() {
+        // ✅ FIX: explicit return type
+        data(): { page: number } {
           return { page: 1 };
         },
       };
@@ -497,8 +499,8 @@ describe('MovementPagination.vue (Component Testing)', () => {
       const wrapper = mount(Parent as any);
       const buttons = wrapper.findAll('button');
 
-      expect(buttons[0].attributes('disabled')).toBeDefined();
-      expect(buttons[2].attributes('disabled')).toBeUndefined();
+      expect(buttons[0]!.attributes('disabled')).toBeDefined();
+      expect(buttons[2]!.attributes('disabled')).toBeUndefined();
     });
   });
 });
