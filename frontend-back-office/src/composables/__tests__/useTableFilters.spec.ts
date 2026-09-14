@@ -1,17 +1,24 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { useTableFilters } from '@/composables/useTableFilters'; // Sesuaikan path jika perlu
+import { useTableFilters } from '@/composables/useTableFilters';
 import { useRoute, useRouter } from 'vue-router';
 import { onUnmounted } from 'vue';
 
-// 1. Mock Vue Router
+// ============================================================
+// 1. MOCK VUE ROUTER
+// ============================================================
 vi.mock('vue-router', () => ({
   useRoute: vi.fn(),
   useRouter: vi.fn(),
 }));
 
-// 2. Mock fungsi onUnmounted dari Vue agar kita bisa menguji pembersihannya tanpa harus me-mount komponen sungguhan
+// ============================================================
+// 2. MOCK onUnmounted DARI VUE
+// ============================================================
+// Kita ganti onUnmounted dengan vi.fn() agar bisa:
+// - Memastikan composable benar-benar mendaftarkan cleanup
+// - Mengambil callback-nya secara manual untuk diuji
 vi.mock('vue', async () => {
-  const actual = await vi.importActual('vue');
+  const actual = await vi.importActual<typeof import('vue')>('vue');
   return {
     ...actual,
     onUnmounted: vi.fn(),
@@ -19,20 +26,29 @@ vi.mock('vue', async () => {
 });
 
 describe('useTableFilters Composable (Function-Level Unit Testing)', () => {
+  // ==========================================================
+  // SHARED MOCKS
+  // ==========================================================
   const mockFetchCallback = vi.fn();
   const mockRouterReplace = vi.fn().mockResolvedValue(true);
+
+  // Gunakan objek mutable + getter supaya reassign `mockRouteQuery`
+  // di dalam test tetap terbaca oleh mock useRoute().
   let mockRouteQuery: Record<string, any> = {};
+  const routeMock = {
+    get query() {
+      return mockRouteQuery;
+    },
+  };
 
-beforeEach(() => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers(); 
+    vi.useFakeTimers();
 
-    // ---> TAMBAHKAN BARIS INI UNTUK MENCEGAH KEBOCORAN STATE <---
-    mockRouteQuery = {}; 
+    mockRouteQuery = {};
 
-    // Setup default mock return values
     vi.mocked(useRouter).mockReturnValue({ replace: mockRouterReplace } as any);
-    vi.mocked(useRoute).mockImplementation(() => ({ query: mockRouteQuery } as any));
+    vi.mocked(useRoute).mockReturnValue(routeMock as any);
   });
 
   afterEach(() => {
@@ -41,138 +57,253 @@ beforeEach(() => {
 
   const defaultFilters = { search: '', role: 'all', is_active: true, page: 1 };
 
+  // ==========================================================
+  // HELPER: Ambil callback cleanup dari onUnmounted
+  // Menghindari TS2532 "Object is possibly undefined"
+  // ==========================================================
+  const getRegisteredUnmountCallback = (): (() => void) => {
+    const calls = vi.mocked(onUnmounted).mock.calls;
+    if (calls.length === 0) {
+      throw new Error('onUnmounted tidak pernah dipanggil oleh composable');
+    }
+    // Cast karena signature onUnmounted kompleks
+    return calls[0]![0] as unknown as () => void;
+  };
+
   // =========================================================================
-  // 1. HAPPY & NEGATIVE PATH (Jalur Normal Inisialisasi & Navigasi)
+  // 1. HAPPY & NEGATIVE PATH
   // =========================================================================
   describe('Happy & Negative Path', () => {
-    it('[Happy Path] Menginisialisasi state filter menggunakan defaultFilters jika URL kosong', () => {
-      mockRouteQuery = {}; // URL bersih
+    it('[Happy Path] Inisialisasi state filter memakai defaultFilters jika URL kosong', () => {
+      mockRouteQuery = {};
       const { filters } = useTableFilters(defaultFilters, mockFetchCallback);
-      
-      expect(filters.value).toEqual(defaultFilters);
+
+      // filters adalah reactive object, bukan ref
+      expect(filters).toEqual(defaultFilters);
     });
 
-    it('[Happy Path] changePage() mengubah halaman, mensinkronkan URL, dan memanggil API langsung tanpa jeda', () => {
+    it('[Happy Path] changePage() mengubah halaman, sync URL, dan fetch langsung tanpa debounce', () => {
       const { filters, changePage } = useTableFilters(defaultFilters, mockFetchCallback);
-      
-      changePage(3); // Pindah ke halaman 3
 
-      expect(filters.value.page).toBe(3);
-      expect(mockRouterReplace).toHaveBeenCalledWith({ query: { is_active: 'true', page: '3', role: 'all' } });
-      expect(mockFetchCallback).toHaveBeenCalledTimes(1); // Dipanggil langsung, bukan setTimeout
+      changePage(3);
+
+      expect(filters.page).toBe(3);
+      // Hanya `page` yang berbeda dari default → hanya itu yang masuk query
+      expect(mockRouterReplace).toHaveBeenCalledWith({ query: { page: '3' } });
+      expect(mockFetchCallback).toHaveBeenCalledTimes(1);
+    });
+
+    it('[Happy Path] changePage() tidak melakukan apa-apa jika tidak ada properti `page`', () => {
+      const noPageDefaults = { search: '', role: 'all' };
+      const { changePage } = useTableFilters(noPageDefaults, mockFetchCallback);
+
+      changePage(2);
+
+      expect(mockRouterReplace).not.toHaveBeenCalled();
+      expect(mockFetchCallback).not.toHaveBeenCalled();
     });
   });
 
   // =========================================================================
-  // 2. EQUIVALENCE PARTITIONING (Partisi Parsing Tipe Data dari URL)
+  // 2. EQUIVALENCE PARTITIONING (Parsing Tipe Data dari URL)
   // =========================================================================
   describe('Equivalence Partitioning', () => {
-    it('[Partisi URL Parsing] Tipe String, Number, dan Boolean diubah dengan akurat dari URL String', () => {
-      // Di URL, semua parameter ditangkap sebagai String ('true', '5', 'admin')
+    it('[Partisi URL Parsing] String, Number, Boolean dikonversi dengan akurat dari URL', () => {
       mockRouteQuery = { search: 'admin', is_active: 'false', page: '5' };
-      
+
       const { filters } = useTableFilters(defaultFilters, mockFetchCallback);
 
-      // Pastikan tipe datanya dikonversi dengan benar sesuai cetakan defaultFilters
-      expect(filters.value.search).toBe('admin');      // String
-      expect(filters.value.is_active).toBe(false);     // Strict Boolean (bukan string 'false')
-      expect(filters.value.page).toBe(5);              // Strict Number (bukan string '5')
+      expect(filters.search).toBe('admin');
+      expect(filters.is_active).toBe(false); // boolean sejati
+      expect(filters.page).toBe(5);          // number sejati
+      expect(filters.role).toBe('all');      // tetap default karena tidak ada di URL
     });
 
-    it('[Partisi Sinkronisasi] Nilai kosong ("" atau null) dihapus dari URL agar tetap bersih', () => {
+    it('[Partisi URL Parsing] Nilai boolean tidak valid → fallback ke default', () => {
+      mockRouteQuery = { is_active: 'yes' }; // bukan 'true'/'false'
+
+      const { filters } = useTableFilters(defaultFilters, mockFetchCallback);
+
+      expect(filters.is_active).toBe(true); // default dipertahankan
+    });
+
+    it('[Partisi URL Parsing] Nilai number tidak valid → fallback ke default', () => {
+      mockRouteQuery = { page: 'abc' };
+
+      const { filters } = useTableFilters(defaultFilters, mockFetchCallback);
+
+      expect(filters.page).toBe(1); // default dipertahankan
+    });
+
+    it('[Partisi URL Parsing] Query array → ambil elemen pertama', () => {
+      mockRouteQuery = { search: ['first', 'second'] };
+
+      const { filters } = useTableFilters(defaultFilters, mockFetchCallback);
+
+      expect(filters.search).toBe('first');
+    });
+
+    it('[Partisi Sinkronisasi] Nilai kosong / sama dengan default dihapus dari URL', () => {
       const { filters, syncToUrl } = useTableFilters(defaultFilters, mockFetchCallback);
-      
-      filters.value.search = '';
-      filters.value.role = null as any;
-      
+
+      filters.search = '';
+      filters.role = null as any;
+
       syncToUrl();
 
-      // Parameter 'search' dan 'role' harus musnah dari argument router.replace
-      expect(mockRouterReplace).toHaveBeenCalledWith({ query: { is_active: 'true' } });
+      // Tidak ada yang berbeda dari default → query kosong
+      expect(mockRouterReplace).toHaveBeenCalledWith({ query: {} });
+    });
+
+    it('[Partisi Sinkronisasi] Boolean false dan number 0 TETAP dimasukkan ke URL', () => {
+      const { filters, syncToUrl } = useTableFilters(
+        { search: '', is_active: true, count: 1 },
+        mockFetchCallback
+      );
+
+      filters.is_active = false;
+      filters.count = 0;
+
+      syncToUrl();
+
+      expect(mockRouterReplace).toHaveBeenCalledWith({
+        query: { is_active: 'false', count: '0' },
+      });
     });
   });
 
   // =========================================================================
-  // 3. BOUNDARY VALUE ANALYSIS / BVA (Batas Waktu Debounce & Logika Pagination)
+  // 3. BOUNDARY VALUE ANALYSIS (BVA)
   // =========================================================================
   describe('Boundary Value Analysis (BVA)', () => {
-    it('[Time Boundary] applyFilters() memanggil callback TEPAT di 300ms, tidak di 299ms', () => {
+    it('[Time Boundary] applyFilters() memanggil callback TEPAT di 300ms, bukan di 299ms', () => {
       const { applyFilters } = useTableFilters(defaultFilters, mockFetchCallback);
-      
+
       applyFilters();
 
       vi.advanceTimersByTime(299);
-      expect(mockFetchCallback).not.toHaveBeenCalled(); // 299ms belum dipanggil
+      expect(mockFetchCallback).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(1);
-      expect(mockFetchCallback).toHaveBeenCalledTimes(1); // Tepat 300ms dipanggil
+      expect(mockFetchCallback).toHaveBeenCalledTimes(1);
     });
 
-    it('[Page Number Boundary] page = 1 TIDAK dimasukkan ke URL, page > 1 DIMASUKKAN ke URL', () => {
+    it('[Page Number Boundary] page = 1 tidak masuk URL, page > 1 masuk URL', () => {
       const { filters, syncToUrl } = useTableFilters(defaultFilters, mockFetchCallback);
-      
-      // Batas 1: Halaman 1
-      filters.value.page = 1;
-      syncToUrl();
-      expect(mockRouterReplace.mock.calls[0][0].query.page).toBeUndefined(); 
 
-      // Batas 2: Halaman 2
-      filters.value.page = 2;
+      filters.page = 1;
       syncToUrl();
-      expect(mockRouterReplace.mock.calls[1][0].query.page).toBe('2');
+      expect(mockRouterReplace.mock.calls[0]?.[0].query.page).toBeUndefined();
+
+      filters.page = 2;
+      syncToUrl();
+      expect(mockRouterReplace.mock.calls[1]?.[0].query.page).toBe('2');
     });
   });
 
   // =========================================================================
-  // 4. EDGE & CORNER CASES (Perilaku Ekstrem Debounce & Memory Leak)
+  // 4. EDGE & CORNER CASES
   // =========================================================================
   describe('Edge Cases & Corner Cases', () => {
-    it('[Edge Case - Spam Ketikan] Debounce me-reset timer jika applyFilters dipanggil beruntun (hanya dieksekusi 1x)', () => {
+    it('[Edge Case - Spam Ketikan] Debounce reset timer, callback dieksekusi 1x', () => {
       const { applyFilters } = useTableFilters(defaultFilters, mockFetchCallback);
-      
-      // User mengetik "b", "r", "i", "a", "n" dengan sangat cepat (jeda 100ms)
-      applyFilters(); // "b"
+
+      applyFilters();
       vi.advanceTimersByTime(100);
-      
-      applyFilters(); // "r"
+      applyFilters();
       vi.advanceTimersByTime(100);
-      
-      applyFilters(); // "i"
+      applyFilters();
       vi.advanceTimersByTime(100);
 
-      // Secara total waktu sudah berjalan 300ms dari ketikan pertama, 
-      // TAPI fungsi tidak boleh dipanggil karena timer terus direset!
+      // Total 300ms tapi timer sudah direset oleh panggilan terakhir
       expect(mockFetchCallback).not.toHaveBeenCalled();
 
-      // Barulah 300ms setelah ketikan terakhir, fungsi dipanggil 1x saja
       vi.advanceTimersByTime(300);
       expect(mockFetchCallback).toHaveBeenCalledTimes(1);
     });
 
-    it('[Corner Case - Auto Reset Page] applyFilters() selalu memaksa page kembali ke 1 saat pencarian berubah', () => {
+    it('[Corner Case - Auto Reset Page] applyFilters() memaksa page kembali ke 1', () => {
       const { filters, applyFilters } = useTableFilters(defaultFilters, mockFetchCallback);
-      
-      filters.value.page = 5; // Posisi user sedang di halaman 5
-      
-      // User mengetik pencarian baru
+
+      filters.page = 5;
+
       applyFilters();
       vi.advanceTimersByTime(300);
 
-      // Harus dikembalikan ke halaman 1 agar data tidak kosong/error
-      expect(filters.value.page).toBe(1);
+      expect(filters.page).toBe(1);
     });
 
-    it('[Edge Case - Memory Leak Cleanup] onUnmounted dipanggil dan membersihkan debounce timer', () => {
-      // Kita memonitor apakah fungsi onUnmounted dari Vue benar-benar didaftarkan oleh Composable ini
+    it('[Corner Case - Auto Reset Page] tidak error jika tidak ada properti `page`', () => {
+      const noPageDefaults = { search: '', role: 'all' };
+      const { applyFilters } = useTableFilters(noPageDefaults, mockFetchCallback);
+
+      expect(() => {
+        applyFilters();
+        vi.advanceTimersByTime(300);
+      }).not.toThrow();
+
+      expect(mockFetchCallback).toHaveBeenCalledTimes(1);
+    });
+
+    it('[Edge Case - resetFilters(false)] mengembalikan nilai default + sync + fetch', () => {
+      const { filters, resetFilters } = useTableFilters(defaultFilters, mockFetchCallback);
+
+      filters.search = 'changed';
+      filters.page = 5;
+      mockRouterReplace.mockClear();
+      mockFetchCallback.mockClear();
+
+      resetFilters();
+
+      expect(filters.search).toBe('');
+      expect(filters.page).toBe(1);
+      expect(mockRouterReplace).toHaveBeenCalledWith({ query: {} });
+      expect(mockFetchCallback).toHaveBeenCalledTimes(1);
+    });
+
+    it('[Edge Case - resetFilters(true)] silent: tidak sync & tidak fetch', () => {
+      const { filters, resetFilters } = useTableFilters(defaultFilters, mockFetchCallback);
+
+      filters.search = 'changed';
+      mockRouterReplace.mockClear();
+      mockFetchCallback.mockClear();
+
+      resetFilters(true);
+
+      expect(filters.search).toBe('');
+      expect(mockRouterReplace).not.toHaveBeenCalled();
+      expect(mockFetchCallback).not.toHaveBeenCalled();
+    });
+
+    it('[Edge Case - Memory Leak Cleanup] onUnmounted didaftarkan dan membersihkan debounce timer', () => {
       useTableFilters(defaultFilters, mockFetchCallback);
-      
+
+      // Pastikan onUnmounted dipanggil oleh composable
       expect(onUnmounted).toHaveBeenCalledTimes(1);
-      
-      // Ambil callback yang didaftarkan ke onUnmounted, lalu jalankan
-      const unmountCallback = vi.mocked(onUnmounted).mock.calls[0][0];
+
+      // Ambil callback cleanup dengan helper (bebas TS2532)
+      const unmountCallback = getRegisteredUnmountCallback();
+      expect(typeof unmountCallback).toBe('function');
+
+      // Jalankan cleanup
       unmountCallback();
 
-      // Secara teori, timer (clearTimeout) telah tereksekusi sehingga jika kita majukan 300ms, callback tidak akan jalan
+      // Setelah cleanup, tidak boleh ada efek samping
+      vi.advanceTimersByTime(300);
+      expect(mockFetchCallback).not.toHaveBeenCalled();
+    });
+
+    it('[Edge Case - Memory Leak Cleanup] timer dibatalkan setelah unmount walau ada pending applyFilters', () => {
+      const { applyFilters } = useTableFilters(defaultFilters, mockFetchCallback);
+
+      // Jadwalkan timer
+      applyFilters();
+
+      // Ambil callback cleanup & jalankan
+      const unmountCallback = getRegisteredUnmountCallback();
+      unmountCallback();
+
+      // Majukan waktu — timer seharusnya sudah dibatalkan
       vi.advanceTimersByTime(300);
       expect(mockFetchCallback).not.toHaveBeenCalled();
     });

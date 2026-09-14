@@ -54,4 +54,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(CashierShift::class);
     }
+
+    /**
+     * Get the stock movements performed by the user.
+     */
+    public function stockMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class);
+    }
 }

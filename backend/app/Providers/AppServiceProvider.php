@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\RawMaterialCategory;
 use App\Models\Shift;
 use App\Models\User;
+use App\Observers\RawMaterialCategoryObserver;
 use App\Observers\ShiftObserver;
 use App\Observers\UserObserver;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -31,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
          */
         User::observe(UserObserver::class);
         Shift::observe(ShiftObserver::class);
+        RawMaterialCategory::observe(RawMaterialCategoryObserver::class);
 
         /**
          * Configure application rate limiters.

@@ -16,36 +16,55 @@ const routes: RouteRecordRaw[] = [
     path: '/login',
     name: 'Login',
     component: Login,
-    meta: { 
-      layout: AuthLayout 
-    }
+    meta: { layout: AuthLayout }
   },
+
+  // ==========================================
+  // BACKOFFICE (nested layout)
+  // ==========================================
   {
-    path: '/dashboard',
-    name: 'Dashboard',
-    component: () => import('../pages/Dashboard.vue'),
-    meta: { 
-      requiresAuth: true 
-    }
+    path: '/',
+    component: () => import('../layouts/BackofficeLayout.vue'),
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: () => import('../pages/Dashboard.vue'),
+      },
+      {
+        path: 'users',
+        name: 'UserManagement',
+        component: () => import('../pages/users/UserIndex.vue'),
+        meta: { allowedRoles: ['admin', 'manager'] }
+      },
+      {
+        path: 'shifts',
+        name: 'ShiftManagement',
+        component: () => import('../pages/shift/ShiftManagementPage.vue'),
+        meta: { allowedRoles: ['admin', 'manager'] }
+      },
+      {
+        path: 'inventory/categories',
+        name: 'InventoryCategories',
+        component: () => import('../pages/inventory/CategoryIndex.vue'),
+        meta: { allowedRoles: ['admin', 'manager', 'inventory'] }
+      },
+      {
+        path: 'inventory/materials',
+        name: 'InventoryMaterials',
+        component: () => import('../pages/inventory/MaterialIndex.vue'),
+        meta: { allowedRoles: ['admin', 'manager', 'inventory'] }
+      },
+      {
+        path: 'inventory/stock-movements',
+        name: 'InventoryStockMovements',
+        component: () => import('../pages/inventory/MovementIndex.vue'),
+        meta: { allowedRoles: ['admin', 'manager', 'inventory'] }
+      },
+    ]
   },
-  {
-    path: '/users',
-    name: 'UserManagement',
-    component: () => import('../pages/users/UserIndex.vue'), 
-    meta: { 
-      requiresAuth: true,
-      allowedRoles: ['admin', 'manager']
-    }
-  },
-  {
-    path: '/shifts',
-    name: 'ShiftManagement',
-    component: () => import('../pages/shift/ShiftManagementPage.vue'), 
-    meta: { 
-      requiresAuth: true,
-      allowedRoles: ['admin', 'manager']
-    }
-  },
+
   {
     path: '/:pathMatch(.*)*',
     redirect: '/login'

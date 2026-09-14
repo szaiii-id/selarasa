@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\CashierShift;
+use App\Models\RawMaterial;
+use App\Models\RawMaterialCategory;
 use App\Models\Shift;
 use App\Models\User;
 use Carbon\Carbon;
@@ -156,6 +158,49 @@ class K6LoadTestSeeder extends Seeder
 
         if (!empty($dummyData)) {
             DB::table('cashier_shifts')->insert($dummyData);
+        }
+
+        // ==========================================
+        // 6. BUAT AKUN ADMIN UNTUK SETUP LOGIN K6
+        // ==========================================
+        $this->command->info('⏳ Creating Admin Account for K6 Auth Setup...');
+        User::updateOrCreate(
+            ['username' => 'admin_test'],
+            [
+                'id'        => '00000000-0000-4000-8000-111111111111',
+                'name'      => 'K6 Load Tester Admin',
+                'password'  => $hashedPassword, // Menggunakan password_testing_123
+                'pin_code'  => $hashedPin,
+                'role'      => 'admin',
+                'is_active' => true,
+            ]
+        );
+
+        // ==========================================
+        // 7. BUAT DATA INVENTORY
+        // ==========================================
+        $this->command->info('⏳ Creating Inventory Categories and Materials...');
+        
+        // Buat 5 Kategori Bahan Baku
+        $categories = RawMaterialCategory::factory()->count(5)->create();
+
+        // Buat 10 Bahan Baku untuk masing-masing Kategori (Total 50 Data)
+        foreach ($categories as $category) {
+            RawMaterial::factory()->count(10)->create([
+                'category_id' => $category->id,
+            ]);
+        }
+
+        // GARANSI: Pastikan Raw Material dengan ID 1 benar-benar ada untuk target testing IN/OUT k6
+        if (!RawMaterial::find(1)) {
+            RawMaterial::factory()->create([
+                'id'            => 1,
+                'category_id'   => $categories->first()->id,
+                'sku'           => 'RM-K6-0001',
+                'name'          => 'Bahan Baku Utama (K6 Target)',
+                'unit'          => 'kg',
+                'current_stock' => 0,
+            ]);
         }
 
         $this->command->info('✅ K6 Load Test Data Seeding Completed Successfully!');
