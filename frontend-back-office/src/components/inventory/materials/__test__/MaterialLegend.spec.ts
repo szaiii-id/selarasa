@@ -75,39 +75,39 @@ describe('MaterialLegend.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 2. SWATCH COLOR CLASSES
+  // 2. SWATCH COLOR CLASSES — ✅ FIX non-null assertion
   // =========================================================================
   describe('Swatch Color Classes', () => {
     it('[Happy Path] swatch pertama (healthy) punya bg-success/30', () => {
       const wrapper = createWrapper();
 
       const swatches = wrapper.findAll('span.w-3.h-3.rounded');
-      expect(swatches[0].classes()).toContain('bg-success/30');
-      expect(swatches[0].classes()).toContain('border-success');
+      expect(swatches[0]!.classes()).toContain('bg-success/30');
+      expect(swatches[0]!.classes()).toContain('border-success');
     });
 
     it('[Happy Path] swatch kedua (low stock) punya bg-warning/30', () => {
       const wrapper = createWrapper();
 
       const swatches = wrapper.findAll('span.w-3.h-3.rounded');
-      expect(swatches[1].classes()).toContain('bg-warning/30');
-      expect(swatches[1].classes()).toContain('border-warning');
+      expect(swatches[1]!.classes()).toContain('bg-warning/30');
+      expect(swatches[1]!.classes()).toContain('border-warning');
     });
 
     it('[Happy Path] swatch ketiga (out of stock) punya bg-error/30', () => {
       const wrapper = createWrapper();
 
       const swatches = wrapper.findAll('span.w-3.h-3.rounded');
-      expect(swatches[2].classes()).toContain('bg-error/30');
-      expect(swatches[2].classes()).toContain('border-error');
+      expect(swatches[2]!.classes()).toContain('bg-error/30');
+      expect(swatches[2]!.classes()).toContain('border-error');
     });
 
     it('[Happy Path] swatch keempat (inactive) punya bg-disabled/30', () => {
       const wrapper = createWrapper();
 
       const swatches = wrapper.findAll('span.w-3.h-3.rounded');
-      expect(swatches[3].classes()).toContain('bg-disabled/30');
-      expect(swatches[3].classes()).toContain('border-disabled');
+      expect(swatches[3]!.classes()).toContain('bg-disabled/30');
+      expect(swatches[3]!.classes()).toContain('border-disabled');
     });
 
     it('[Happy Path] semua swatch punya class shrink-0', () => {
@@ -181,13 +181,12 @@ describe('MaterialLegend.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const allSpans = wrapper.findAll('span');
-      // 4 item wrapper + 4 swatch = 8 span (root adalah div)
       expect(allSpans.length).toBe(8);
     });
   });
 
   // =========================================================================
-  // 4. ORDER PRESERVATION
+  // 4. ORDER PRESERVATION — ✅ FIX non-null assertion
   // =========================================================================
   describe('Order Preservation', () => {
     it('[Happy Path] urutan item: healthy → low → out → inactive', () => {
@@ -209,10 +208,10 @@ describe('MaterialLegend.vue (Component Testing)', () => {
 
       const swatches = wrapper.findAll('span.w-3.h-3.rounded');
 
-      expect(swatches[0].classes()).toContain('bg-success/30');
-      expect(swatches[1].classes()).toContain('bg-warning/30');
-      expect(swatches[2].classes()).toContain('bg-error/30');
-      expect(swatches[3].classes()).toContain('bg-disabled/30');
+      expect(swatches[0]!.classes()).toContain('bg-success/30');
+      expect(swatches[1]!.classes()).toContain('bg-warning/30');
+      expect(swatches[2]!.classes()).toContain('bg-error/30');
+      expect(swatches[3]!.classes()).toContain('bg-disabled/30');
     });
   });
 
@@ -268,7 +267,7 @@ describe('MaterialLegend.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 6. DATA-DRIVEN CONFIG VERIFICATION
+  // 6. DATA-DRIVEN CONFIG VERIFICATION — ✅ FIX non-null assertion
   // =========================================================================
   describe('Data-driven Config', () => {
     it('[Config] setiap swatch punya pasangan border dengan warna yang sama', () => {
@@ -276,21 +275,17 @@ describe('MaterialLegend.vue (Component Testing)', () => {
 
       const swatches = wrapper.findAll('span.w-3.h-3.rounded');
 
-      // healthy
-      expect(swatches[0].classes()).toContain('bg-success/30');
-      expect(swatches[0].classes()).toContain('border-success');
+      expect(swatches[0]!.classes()).toContain('bg-success/30');
+      expect(swatches[0]!.classes()).toContain('border-success');
 
-      // low stock
-      expect(swatches[1].classes()).toContain('bg-warning/30');
-      expect(swatches[1].classes()).toContain('border-warning');
+      expect(swatches[1]!.classes()).toContain('bg-warning/30');
+      expect(swatches[1]!.classes()).toContain('border-warning');
 
-      // out of stock
-      expect(swatches[2].classes()).toContain('bg-error/30');
-      expect(swatches[2].classes()).toContain('border-error');
+      expect(swatches[2]!.classes()).toContain('bg-error/30');
+      expect(swatches[2]!.classes()).toContain('border-error');
 
-      // inactive
-      expect(swatches[3].classes()).toContain('bg-disabled/30');
-      expect(swatches[3].classes()).toContain('border-disabled');
+      expect(swatches[3]!.classes()).toContain('bg-disabled/30');
+      expect(swatches[3]!.classes()).toContain('border-disabled');
     });
 
     it('[Config] semua swatch punya opacity 30 (bg-*/30)', () => {
@@ -317,7 +312,6 @@ describe('MaterialLegend.vue (Component Testing)', () => {
 
       const legendItems = wrapper.findAll('span.flex.items-center.gap-2');
       legendItems.forEach((item) => {
-        // Setiap item harus punya 1 swatch
         const swatch = item.find('span.w-3.h-3.rounded');
         expect(swatch.exists()).toBe(true);
       });

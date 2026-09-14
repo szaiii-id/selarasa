@@ -49,7 +49,7 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
   };
 
   // =========================================================================
-  // 1. HAPPY PATH — Rendering
+  // 1. HAPPY PATH — Rendering — ✅ FIX non-null assertion
   // =========================================================================
   describe('Happy Path — Rendering', () => {
     it('[Happy Path] tidak render saat isOpen=false', () => {
@@ -76,14 +76,14 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
     it('[Happy Path] label submit "Create Material" untuk create', () => {
       const wrapper = createWrapper({ materialToEdit: null });
       const buttons = wrapper.findAll('button');
-      const submitBtn = buttons[buttons.length - 1];
+      const submitBtn = buttons[buttons.length - 1]!;
       expect(submitBtn.text()).toContain('Create Material');
     });
 
     it('[Happy Path] label submit "Save Changes" untuk edit', () => {
       const wrapper = createWrapper({ materialToEdit: createMaterial() });
       const buttons = wrapper.findAll('button');
-      const submitBtn = buttons[buttons.length - 1];
+      const submitBtn = buttons[buttons.length - 1]!;
       expect(submitBtn.text()).toContain('Save Changes');
     });
 
@@ -166,13 +166,13 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 3. VALIDATION — Computed isValid
+  // 3. VALIDATION — Computed isValid — ✅ FIX non-null assertion
   // =========================================================================
   describe('Validation — Computed isValid', () => {
     it('[Happy Path] submit disabled saat semua field kosong', () => {
       const wrapper = createWrapper();
       const buttons = wrapper.findAll('button');
-      const submitBtn = buttons[buttons.length - 1];
+      const submitBtn = buttons[buttons.length - 1]!;
       expect(submitBtn.attributes('disabled')).toBeDefined();
     });
 
@@ -182,12 +182,11 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="RM-0012-APF"]').setValue('RM-001');
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('Milk');
       await wrapper.find('input[type="number"]').setValue('5');
-      // Category select — pilih opsi pertama yang bukan disabled
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('1');
+      await selects[0]!.setValue('1');
 
       const buttons = wrapper.findAll('button');
-      const submitBtn = buttons[buttons.length - 1];
+      const submitBtn = buttons[buttons.length - 1]!;
       expect(submitBtn.attributes('disabled')).toBeUndefined();
     });
 
@@ -197,10 +196,10 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="RM-0012-APF"]').setValue('RM-001');
       await wrapper.find('input[type="number"]').setValue('5');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('1');
+      await selects[0]!.setValue('1');
 
       const buttons = wrapper.findAll('button');
-      const submitBtn = buttons[buttons.length - 1];
+      const submitBtn = buttons[buttons.length - 1]!;
       expect(submitBtn.attributes('disabled')).toBeDefined();
     });
 
@@ -211,10 +210,10 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('Milk');
       await wrapper.find('input[type="number"]').setValue('-5');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('1');
+      await selects[0]!.setValue('1');
 
       const buttons = wrapper.findAll('button');
-      const submitBtn = buttons[buttons.length - 1];
+      const submitBtn = buttons[buttons.length - 1]!;
       expect(submitBtn.attributes('disabled')).toBeDefined();
     });
 
@@ -224,13 +223,13 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
         materialToEdit: createMaterial(),
       });
       const buttons = wrapper.findAll('button');
-      const submitBtn = buttons[buttons.length - 1];
+      const submitBtn = buttons[buttons.length - 1]!;
       expect(submitBtn.attributes('disabled')).toBeDefined();
     });
   });
 
   // =========================================================================
-  // 4. EVENT EMISSION — submit (create)
+  // 4. EVENT EMISSION — submit (create) — ✅ FIX non-null assertion
   // =========================================================================
   describe('Event Emission — submit (create)', () => {
     it('[Happy Path] emit submit dengan payload lengkap', async () => {
@@ -240,10 +239,10 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('Fresh Milk');
       await wrapper.find('input[type="number"]').setValue('5');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('2'); // Tea
+      await selects[0]!.setValue('2');
 
       const buttons = wrapper.findAll('button');
-      const submitBtn = buttons[buttons.length - 1];
+      const submitBtn = buttons[buttons.length - 1]!;
       await submitBtn.trigger('click');
 
       const emitted = wrapper.emitted('submit');
@@ -252,9 +251,9 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
         category_id: 2,
         sku: 'RM-001',
         name: 'Fresh Milk',
-        unit: 'kg',        // default
+        unit: 'kg',
         minimum_stock: 5,
-        is_active: true,   // default
+        is_active: true,
       });
     });
 
@@ -265,10 +264,10 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('Milk');
       await wrapper.find('input[type="number"]').setValue('5');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('1');
+      await selects[0]!.setValue('1');
 
       const buttons = wrapper.findAll('button');
-      await buttons[buttons.length - 1].trigger('click');
+      await buttons[buttons.length - 1]!.trigger('click');
 
       const emitted = wrapper.emitted('submit');
       expect((emitted![0]![0] as any).sku).toBe('RM-001');
@@ -281,10 +280,10 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('  Milk  ');
       await wrapper.find('input[type="number"]').setValue('5');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('1');
+      await selects[0]!.setValue('1');
 
       const buttons = wrapper.findAll('button');
-      await buttons[buttons.length - 1].trigger('click');
+      await buttons[buttons.length - 1]!.trigger('click');
 
       const emitted = wrapper.emitted('submit');
       expect((emitted![0]![0] as any).name).toBe('Milk');
@@ -297,10 +296,10 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('Milk');
       await wrapper.find('input[type="number"]').setValue('5');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('3');
+      await selects[0]!.setValue('3');
 
       const buttons = wrapper.findAll('button');
-      await buttons[buttons.length - 1].trigger('click');
+      await buttons[buttons.length - 1]!.trigger('click');
 
       const emitted = wrapper.emitted('submit');
       expect(typeof (emitted![0]![0] as any).category_id).toBe('number');
@@ -314,10 +313,10 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('Milk');
       await wrapper.find('input[type="number"]').setValue('25.5');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('1');
+      await selects[0]!.setValue('1');
 
       const buttons = wrapper.findAll('button');
-      await buttons[buttons.length - 1].trigger('click');
+      await buttons[buttons.length - 1]!.trigger('click');
 
       const emitted = wrapper.emitted('submit');
       expect(typeof (emitted![0]![0] as any).minimum_stock).toBe('number');
@@ -328,7 +327,7 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      await buttons[buttons.length - 1].trigger('click');
+      await buttons[buttons.length - 1]!.trigger('click');
 
       expect(wrapper.emitted('submit')).toBeUndefined();
     });
@@ -340,20 +339,19 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       });
 
       const buttons = wrapper.findAll('button');
-      await buttons[buttons.length - 1].trigger('click');
+      await buttons[buttons.length - 1]!.trigger('click');
 
       expect(wrapper.emitted('submit')).toBeUndefined();
     });
   });
 
   // =========================================================================
-  // 5. TOGGLE ACTIVE
+  // 5. TOGGLE ACTIVE — ✅ FIX non-null assertion
   // =========================================================================
   describe('Toggle Active Status', () => {
     it('[Happy Path] default is_active=true di create mode', async () => {
       const wrapper = createWrapper();
 
-      // Toggle should be active (bg-success)
       const toggleBtn = wrapper.find('button[type="button"]');
       expect(toggleBtn.classes()).toContain('bg-success');
     });
@@ -384,14 +382,13 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('Milk');
       await wrapper.find('input[type="number"]').setValue('5');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('1');
+      await selects[0]!.setValue('1');
 
-      // Toggle to inactive
       const toggleBtn = wrapper.find('button[type="button"]');
       await toggleBtn.trigger('click');
 
       const buttons = wrapper.findAll('button');
-      await buttons[buttons.length - 1].trigger('click');
+      await buttons[buttons.length - 1]!.trigger('click');
 
       const emitted = wrapper.emitted('submit');
       expect((emitted![0]![0] as any).is_active).toBe(false);
@@ -445,14 +442,14 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 7. EVENT EMISSION — close
+  // 7. EVENT EMISSION — close — ✅ FIX non-null assertion
   // =========================================================================
   describe('Event Emission — close', () => {
     it('[Happy Path] emit close saat klik tombol X', async () => {
       const wrapper = createWrapper();
 
       const buttons = wrapper.findAll('button');
-      await buttons[0].trigger('click'); // X button
+      await buttons[0]!.trigger('click');
 
       expect(wrapper.emitted('close')).toHaveLength(1);
     });
@@ -480,7 +477,7 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       const wrapper = createWrapper({ isLoading: true });
 
       const buttons = wrapper.findAll('button');
-      await buttons[0].trigger('click');
+      await buttons[0]!.trigger('click');
 
       expect(wrapper.emitted('close')).toBeUndefined();
     });
@@ -565,7 +562,7 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 9. BOUNDARY VALUE ANALYSIS (BVA)
+  // 9. BOUNDARY VALUE ANALYSIS (BVA) — ✅ FIX non-null assertion
   // =========================================================================
   describe('Boundary Value Analysis (BVA)', () => {
     it('[BVA - minimum_stock = 0] valid', async () => {
@@ -575,10 +572,10 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('Milk');
       await wrapper.find('input[type="number"]').setValue('0');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('1');
+      await selects[0]!.setValue('1');
 
       const buttons = wrapper.findAll('button');
-      const submitBtn = buttons[buttons.length - 1];
+      const submitBtn = buttons[buttons.length - 1]!;
       expect(submitBtn.attributes('disabled')).toBeUndefined();
     });
 
@@ -599,14 +596,14 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
     it('[BVA - unit default "kg"', () => {
       const wrapper = createWrapper();
 
-      const unitSelect = wrapper.findAll('select')[1]; // second select = unit
+      const unitSelect = wrapper.findAll('select')[1]!;
       expect((unitSelect.element as HTMLSelectElement).value).toBe('kg');
     });
 
     it('[BVA - semua unit options tersedia', () => {
       const wrapper = createWrapper();
 
-      const unitSelect = wrapper.findAll('select')[1];
+      const unitSelect = wrapper.findAll('select')[1]!;
       const options = unitSelect.findAll('option');
       const optionValues = options.map((o) => o.element.value);
       expect(optionValues).toEqual(['kg', 'gr', 'L', 'ml', 'pcs']);
@@ -614,7 +611,7 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
   });
 
   // =========================================================================
-  // 10. EDGE CASES & CORNER CASES
+  // 10. EDGE CASES & CORNER CASES — ✅ FIX non-null assertion
   // =========================================================================
   describe('Edge Cases & Corner Cases', () => {
     it('[Edge Case] sku lowercase di-uppercase di submit', async () => {
@@ -624,10 +621,10 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('Test');
       await wrapper.find('input[type="number"]').setValue('5');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('1');
+      await selects[0]!.setValue('1');
 
       const buttons = wrapper.findAll('button');
-      await buttons[buttons.length - 1].trigger('click');
+      await buttons[buttons.length - 1]!.trigger('click');
 
       const emitted = wrapper.emitted('submit');
       expect((emitted![0]![0] as any).sku).toBe('ABC-123');
@@ -640,10 +637,10 @@ describe('MaterialFormModal.vue (Component Testing)', () => {
       await wrapper.find('input[placeholder="e.g., Fresh Milk UHT"]').setValue('Milk');
       await wrapper.find('input[type="number"]').setValue('5');
       const selects = wrapper.findAll('select');
-      await selects[0].setValue('1');
+      await selects[0]!.setValue('1');
 
       const buttons = wrapper.findAll('button');
-      await buttons[buttons.length - 1].trigger('click');
+      await buttons[buttons.length - 1]!.trigger('click');
 
       const emitted = wrapper.emitted('submit');
       expect((emitted![0]![0] as any).is_active).toBe(true);

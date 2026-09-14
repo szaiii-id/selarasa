@@ -303,7 +303,6 @@ describe('MaterialPageHeader.vue (Component Testing)', () => {
     it('[Edge Case] badge low stock bukan button (semantic)', () => {
       const wrapper = createWrapper({ lowStockCount: 3 });
 
-      // Total button tetap 1 (hanya Add Material)
       expect(wrapper.findAll('button')).toHaveLength(1);
     });
 
@@ -325,10 +324,10 @@ describe('MaterialPageHeader.vue (Component Testing)', () => {
 
     it('[Corner Case] total SVG icon: 2 saat badge muncul, 1 saat tidak', () => {
       const wrapperEmpty = createWrapper({ lowStockCount: 0 });
-      expect(wrapperEmpty.findAll('svg')).toHaveLength(2); // folder + plus
+      expect(wrapperEmpty.findAll('svg')).toHaveLength(2);
 
       const wrapperWithBadge = createWrapper({ lowStockCount: 3 });
-      expect(wrapperWithBadge.findAll('svg')).toHaveLength(3); // folder + warning + plus
+      expect(wrapperWithBadge.findAll('svg')).toHaveLength(3);
     });
 
     it('[Edge Case] klik Add Material tidak mengubah DOM', async () => {
@@ -356,6 +355,7 @@ describe('MaterialPageHeader.vue (Component Testing)', () => {
 
   // =========================================================================
   // 7. INTEGRATION — Parent Component
+  // ✅ FIX: explicit type untuk data() & methods this
   // =========================================================================
   describe('Integration — Parent Component', () => {
     it('[Integration] parent bisa handle event add', async () => {
@@ -368,14 +368,16 @@ describe('MaterialPageHeader.vue (Component Testing)', () => {
           />
           <span data-testid="clicked">{{ clicked ? 'yes' : 'no' }}</span>
         `,
-        data() {
+        // ✅ FIX: explicit return type
+        data(): { lowStockCount: number; clicked: boolean } {
           return {
             lowStockCount: 5,
             clicked: false,
           };
         },
         methods: {
-          handleAdd() {
+          // ✅ FIX: explicit `this` type
+          handleAdd(this: { clicked: boolean }) {
             this.clicked = true;
           },
         },
@@ -398,7 +400,8 @@ describe('MaterialPageHeader.vue (Component Testing)', () => {
           <MaterialPageHeader :low-stock-count="count" />
           <button @click="count = 0" data-testid="reset">Reset</button>
         `,
-        data() {
+        // ✅ FIX: explicit return type
+        data(): { count: number } {
           return { count: 5 };
         },
       };
