@@ -11,10 +11,18 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use Exception;
 
 class InventoryService
 {
+    /**
+     * Whitelist movement types.
+     * Single source of truth — dipakai untuk validasi di service layer
+     * sebagai defensive guard (di samping validasi di FormRequest).
+     */
+    protected const VALID_MOVEMENT_TYPES = ['IN', 'OUT', 'ADJUSTMENT'];
+
     /**
      * Inject the repositories.
      */
@@ -29,6 +37,10 @@ class InventoryService
 
     public function getPaginatedMaterials(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
+        // Defensive: ensure perPage is at least 1
+        // (prevent Collection return from repository when perPage = 0)
+        $perPage = max(1, $perPage);
+
         return $this->materialRepository->getAll($filters, $perPage);
     }
 
@@ -41,7 +53,7 @@ class InventoryService
     public function getMaterialById(int $id): RawMaterial
     {
         $material = $this->materialRepository->findById($id);
-        
+
         if (!$material) {
             throw new ModelNotFoundException("Raw material with ID {$id} not found.");
         }
@@ -65,9 +77,10 @@ class InventoryService
     public function updateMaterial(int $id, array $data): RawMaterial
     {
         // Security Guard: Prevent direct modification of current_stock through Master update
-        unset($data['current_stock']); 
+        unset($data['current_stock']);
 
-        $material = $this->getMaterialById($id);
+        // Ensure material exists before update (throws ModelNotFoundException if not)
+        $this->getMaterialById($id);
 
         try {
             return DB::transaction(function () use ($id, $data) {
@@ -81,12 +94,12 @@ class InventoryService
     }
 
     /**
-     * Delete a raw material.
+     * Delete a raw material (Soft Delete).
      */
     public function deleteMaterial(int $id): bool
     {
         // Ensure it exists before deleting
-        $this->getMaterialById($id); 
+        $this->getMaterialById($id);
 
         try {
             return $this->materialRepository->delete($id);
@@ -102,50 +115,115 @@ class InventoryService
 
     public function getPaginatedMovements(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
+        // Defensive: ensure perPage is at least 1
+        // (prevent Collection return from repository when perPage = 0)
+        $perPage = max(1, $perPage);
+
         return $this->movementRepository->getAll($filters, $perPage);
     }
 
     /**
      * Process a stock movement strictly inside a database transaction with Pessimistic Locking.
+     *
+     * Interpretation:
+     * - IN         : quantity is positive delta (abs applied)  → stock += |qty|
+     * - OUT        : quantity is negative delta (abs applied) → stock -= |qty|
+     * - ADJUSTMENT : quantity is SIGNED delta (as-is)         → stock += qty
+     *
+     * Signed delta semantics ensure:
+     * - Immutable audit trail (quantity = "what happened")
+     * - Idempotent-safe (replay produces same result)
+     * - Race-condition safe (lockForUpdate + delta)
+     *
+     * @throws InvalidArgumentException
+     * @throws ModelNotFoundException
+     * @throws InsufficientStockException
      */
     public function processStockMovement(
-        int $materialId, 
-        string $userId, 
-        string $type, 
-        float $quantity, 
-        string $reason, 
+        int $materialId,
+        string $userId,
+        string $type,
+        float $quantity,
+        string $reason,
         ?string $referenceId = null
     ): StockMovement {
+        // ==========================================
+        // 0. DEFENSIVE VALIDATION (before transaction)
+        // ==========================================
+        $type = strtoupper(trim($type));
+
+        if (!in_array($type, self::VALID_MOVEMENT_TYPES, true)) {
+            throw new InvalidArgumentException(
+                "Invalid movement type: '{$type}'. Allowed: " . implode(', ', self::VALID_MOVEMENT_TYPES)
+            );
+        }
+
+        if ($quantity === 0.0) {
+            throw new InvalidArgumentException(
+                "Quantity cannot be zero. A movement must change the stock level."
+            );
+        }
+
+        if (trim($userId) === '') {
+            throw new InvalidArgumentException(
+                "User ID is required to record a stock movement."
+            );
+        }
+
         try {
             return DB::transaction(function () use ($materialId, $userId, $type, $quantity, $reason, $referenceId) {
-                // 1. Lock the row for update to prevent concurrent race conditions
-                $material = RawMaterial::where('id', $materialId)->lockForUpdate()->first();
+                // ==========================================
+                // 1. LOCK ROW (pessimistic locking)
+                // ==========================================
+                $material = RawMaterial::where('id', $materialId)
+                    ->lockForUpdate()
+                    ->first();
 
                 if (!$material) {
                     throw new ModelNotFoundException("Raw material ID {$materialId} not found.");
                 }
 
-                // 2. Normalize Quantity Sign
-                $type = strtoupper($type);
+                // ==========================================
+                // 2. GUARD: INACTIVE MATERIAL
+                // ==========================================
+                if (!$material->is_active) {
+                    throw new InvalidArgumentException(
+                        "Cannot process stock movement: material '{$material->name}' (SKU: {$material->sku}) is inactive. " .
+                        "Reactivate the material first if you need to adjust its stock."
+                    );
+                }
+
+                // ==========================================
+                // 3. NORMALIZE QUANTITY SIGN (delta semantics)
+                // ==========================================
                 $absQuantity = abs($quantity);
 
                 $normalizedQuantity = match ($type) {
-                    'OUT'   => -$absQuantity,
-                    'IN'    => $absQuantity,
-                    // ADJUSTMENT takes the raw +/- value
-                    default => $quantity, 
+                    'IN'         => $absQuantity,       // always positive
+                    'OUT'        => -$absQuantity,      // always negative
+                    'ADJUSTMENT' => $quantity,          // signed as-is (raw delta)
                 };
 
                 $balanceBefore = (float) $material->current_stock;
-                // Round to 2 decimals to prevent floating-point drift
-                $balanceAfter = round($balanceBefore + $normalizedQuantity, 2); 
 
-                // 3. Business Guard: No Negative Stock
+                // Round to 2 decimals to prevent floating-point drift
+                $balanceAfter = round($balanceBefore + $normalizedQuantity, 2);
+
+                // ==========================================
+                // 4. BUSINESS GUARD: NO NEGATIVE STOCK
+                // ==========================================
                 if ($balanceAfter < 0) {
-                    throw new InsufficientStockException("Insufficient stock. Available: {$balanceBefore}, Requested deduction: {$absQuantity}");
+                    throw new InsufficientStockException(
+                        "Insufficient stock for '{$material->name}'. " .
+                        "Available: {$balanceBefore} {$material->unit}, " .
+                        "Requested change: {$normalizedQuantity} {$material->unit}, " .
+                        "Result would be: {$balanceAfter} {$material->unit}."
+                    );
                 }
 
-                // 4. Insert into stock_movements (Audit Trail)
+                // ==========================================
+                // 5. INSERT MOVEMENT (immutable audit trail)
+                // ==========================================
                 $movement = $this->movementRepository->create([
                     'raw_material_id' => $material->id,
                     'user_id'         => $userId,
@@ -157,17 +235,27 @@ class InventoryService
                     'reference_id'    => $referenceId,
                 ]);
 
-                // 5. Update the actual current_stock on raw_materials table via Eloquent Model
-                // This ensures any model observers or casts are properly triggered
+                // ==========================================
+                // 6. UPDATE MATERIAL STOCK
+                // ==========================================
+                // Via Eloquent so observers, casts, and events are properly triggered
                 $material->current_stock = $balanceAfter;
                 $material->save();
 
                 return $movement;
             });
-        } catch (InsufficientStockException | ModelNotFoundException $e) {
+        } catch (InsufficientStockException | ModelNotFoundException | InvalidArgumentException $e) {
+            // Business exceptions — rethrow tanpa log error (bukan system failure)
             throw $e;
         } catch (Exception $e) {
-            Log::error("Failed to process stock movement for Material ID {$materialId}: " . $e->getMessage());
+            Log::error("Failed to process stock movement", [
+                'material_id'  => $materialId,
+                'user_id'      => $userId,
+                'type'         => $type,
+                'quantity'     => $quantity,
+                'reference_id' => $referenceId,
+                'error'        => $e->getMessage(),
+            ]);
             throw $e;
         }
     }

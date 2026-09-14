@@ -13,15 +13,15 @@ services:
       - backend_vendor:/app/vendor 
     environment:
       - DB_CONNECTION=pgsql
-      - DB_HOST=db
-      - DB_PORT=5432
+      - DB_HOST=pgbouncer
+      - DB_PORT=6432
       - DB_DATABASE=${DB_NAME}
       - DB_USERNAME=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
     depends_on:
-      db:
-        condition: service_healthy
+      pgbouncer:
+        condition: service_started
       redis:
         condition: service_started
     networks:
@@ -40,12 +40,49 @@ services:
       - ./backend:/app
       - backend_vendor:/app/vendor 
     env_file:
-      - ./backend/.env.testing   
+      - ./backend/.env.testing
+    environment:
+      DB_HOST: pgbouncer
+      DB_PORT: "6432"
+      FRANKENPHP_CONFIG: |
+        num_threads 128
+        max_threads 128
     depends_on:
-      db:
-        condition: service_healthy
+      pgbouncer:
+        condition: service_started
     networks:
       - selarasa_net
+
+  pgbouncer_init:
+    image: alpine:latest
+    container_name: ${PROJECT_NAME}_pgbouncer_init
+    restart: 'no'
+    environment:
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./backend/docker/pgbouncer:/pgbouncer-config
+    entrypoint: >
+      sh -c 'echo "\"${DB_USER}\" \"${DB_PASSWORD}\"" > /pgbouncer-config/userlist.txt'
+    networks:
+      - selarasa_net
+
+  pgbouncer:
+      image: edoburu/pgbouncer:latest
+      container_name: ${PROJECT_NAME}_pgbouncer
+      restart: 'no'
+      volumes:
+        - ./backend/docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini
+        - ./backend/docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt
+      ports:
+        - "6432:6432"
+      depends_on:
+        db:
+          condition: service_healthy
+        pgbouncer_init:
+          condition: service_completed_successfully
+      networks:
+        - selarasa_net
 
   pos:
     build:

@@ -19,10 +19,17 @@ class RawMaterialController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        // Guard DoS: Batasi maksimal paginasi hingga 100 item per request
-        $perPage = min((int) $request->query('per_page', 15), 100);
-        $filters = $request->only(['keyword', 'category_id', 'is_active']);
-        
+        // Cap per_page to prevent DoS
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
+
+        $filters = $request->only([
+            'search',
+            'category_id',
+            'is_active',
+            'is_low_stock',
+            'is_out_of_stock',
+        ]);
+
         $materials = $this->inventoryService->getPaginatedMaterials($perPage, $filters);
 
         return RawMaterialResource::collection($materials);
@@ -41,10 +48,9 @@ class RawMaterialController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        // Menggunakan Service untuk menjaga konsistensi arsitektur
         $material = $this->inventoryService->getMaterialById($id);
         $material->load('category');
-        
+
         return response()->json([
             'data' => new RawMaterialResource($material),
         ], Response::HTTP_OK);

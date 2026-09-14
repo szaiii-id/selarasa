@@ -20,12 +20,24 @@ class StockMovementController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $validated = $request->validate([
-            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'per_page'        => ['sometimes', 'integer', 'min:1', 'max:100'],
+            'raw_material_id' => ['sometimes', 'nullable', 'integer'],
+            'movement_type'   => ['sometimes', 'nullable', 'in:IN,OUT,ADJUSTMENT'],
+            'user_id'         => ['sometimes', 'nullable', 'uuid'],
+            'start_date'      => ['sometimes', 'nullable', 'date_format:Y-m-d'],
+            'end_date'        => ['sometimes', 'nullable', 'date_format:Y-m-d', 'after_or_equal:start_date'],
         ]);
-        
+
         $perPage = $validated['per_page'] ?? 15;
-        $filters = $request->only(['raw_material_id', 'movement_type', 'user_id', 'start_date', 'end_date']);
-        
+
+        $filters = $request->only([
+            'raw_material_id',
+            'movement_type',
+            'user_id',
+            'start_date',
+            'end_date',
+        ]);
+
         $movements = $this->inventoryService->getPaginatedMovements($perPage, $filters);
 
         return StockMovementResource::collection($movements);
@@ -34,7 +46,7 @@ class StockMovementController extends Controller
     public function store(StockMovementRequest $request): JsonResponse
     {
         $validated = $request->validated();
-        
+
         $userId = $request->user()->id;
 
         $movement = $this->inventoryService->processStockMovement(

@@ -1,33 +1,26 @@
 <?php
 
-use App\Contracts\Repositories\RawMaterialRepositoryInterface;
-use App\Contracts\Repositories\StockMovementRepositoryInterface;
-use App\Exceptions\InsufficientStockException;
-use App\Models\RawMaterial;
-use App\Models\StockMovement;
-use App\Services\InventoryService;
+use App\Contracts\Repositories\RawMaterialCategoryRepositoryInterface;
+use App\Models\RawMaterialCategory;
+use App\Services\RawMaterialCategoryService;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Tests\TestCase;
 
 uses(TestCase::class);
 
 beforeEach(function () {
-    $this->materialRepository = Mockery::mock(RawMaterialRepositoryInterface::class);
-    $this->movementRepository = Mockery::mock(StockMovementRepositoryInterface::class);
-    
-    $this->inventoryService = new InventoryService(
-        $this->materialRepository,
-        $this->movementRepository
-    );
-    
-    // Mock DB transaction
+    $this->categoryRepository = Mockery::mock(RawMaterialCategoryRepositoryInterface::class);
+    $this->categoryService = new RawMaterialCategoryService($this->categoryRepository);
+
     DB::shouldReceive('transaction')
-        ->andReturnUsing(function ($callback) {
-            return $callback();
-        })
+        ->andReturnUsing(fn ($callback) => $callback())
         ->byDefault();
 });
 
@@ -35,586 +28,732 @@ afterEach(function () {
     Mockery::close();
 });
 
-// Helper function to create material mock
-function createMaterialMock($attributes = []) {
-    $material = Mockery::mock(RawMaterial::class)->makePartial();
-    $material->shouldReceive('save')->andReturn(true)->byDefault();
-    
-    foreach ($attributes as $key => $value) {
-        $material->{$key} = $value;
-    }
-    
-    return $material;
-}
-
 // ==========================================
-// 1. HAPPY & NEGATIVE PATH (Unit Level)
+// 1. HAPPY PATH — MATERIAL CATEGORY
 // ==========================================
 
-describe('Happy Path Tests - Material Master', function () {
-    it('returns a paginated list of materials', function () {
+describe('Happy Path Tests', function () {
+
+    it('returns a paginated list of categories', function () {
         $paginator = Mockery::mock(LengthAwarePaginator::class);
-        
-        $this->materialRepository
+
+        $this->categoryRepository
             ->shouldReceive('getAll')
             ->once()
             ->with(['status' => 'active'], 15)
             ->andReturn($paginator);
 
-        $result = $this->inventoryService->getPaginatedMaterials(15, ['status' => 'active']);
-        
+        $result = $this->categoryService->getPaginatedCategories(15, ['status' => 'active']);
+
         expect($result)->toBeInstanceOf(LengthAwarePaginator::class);
     });
 
-    it('returns material by ID when found', function () {
-        $materialId = 1;
-        $expectedMaterial = createMaterialMock([
-            'id' => $materialId,
-            'name' => 'Beras Premium',
-            'sku' => 'BR-001',
-            'current_stock' => 100.5
+    it('returns category by ID when found', function () {
+        $expectedCategory = new RawMaterialCategory([
+            'id'          => 1,
+            'name'        => 'Bahan Pokok',
+            'description' => 'Kategori bahan pokok',
         ]);
+        $expectedCategory->id = 1;
 
-        $this->materialRepository
+        $this->categoryRepository
             ->shouldReceive('findById')
             ->once()
-            ->with($materialId)
-            ->andReturn($expectedMaterial);
+            ->with(1)
+            ->andReturn($expectedCategory);
 
-        $result = $this->inventoryService->getMaterialById($materialId);
-        
-        expect($result)->toBeInstanceOf(RawMaterial::class)
-            ->and($result->id)->toBe($materialId)
-            ->and($result->name)->toBe('Beras Premium')
-            ->and((float)$result->current_stock)->toEqual(100.5);
+        $result = $this->categoryService->getCategoryById(1);
+
+        expect($result)->toBeInstanceOf(RawMaterialCategory::class)
+            ->and($result->id)->toBe(1)
+            ->and($result->name)->toBe('Bahan Pokok');
     });
 
-    it('creates material with current_stock forced to zero', function () {
+    it('creates category successfully', function () {
         $data = [
-            'name' => 'Gula Pasir',
-            'sku' => 'GP-001',
-            'current_stock' => 999
+            'name'        => 'Bumbu Dapur',
+            'description' => 'Kategori untuk bumbu dapur',
         ];
-        
-        $materialMock = createMaterialMock([
-            'name' => 'Gula Pasir',
-            'sku' => 'GP-001',
-            'current_stock' => 0
-        ]);
-        $materialMock->id = 1;
 
-        $this->materialRepository
+        $categoryMock = new RawMaterialCategory($data);
+        $categoryMock->id = 1;
+
+        $this->categoryRepository
             ->shouldReceive('create')
             ->once()
-            ->with(Mockery::on(function ($payload) {
-                return $payload['current_stock'] === 0 &&
-                       $payload['name'] === 'Gula Pasir';
-            }))
-            ->andReturn($materialMock);
+            ->with($data)
+            ->andReturn($categoryMock);
 
-        $result = $this->inventoryService->createMaterial($data);
-        
-        expect($result)->toBeInstanceOf(RawMaterial::class)
-            ->and((float)$result->current_stock)->toEqual(0.0);
+        $result = $this->categoryService->createCategory($data);
+
+        expect($result)->toBeInstanceOf(RawMaterialCategory::class)
+            ->and($result->name)->toBe('Bumbu Dapur')
+            ->and($result->description)->toBe('Kategori untuk bumbu dapur');
     });
 
-    it('successfully updates material without changing stock', function () {
-        $materialId = 1;
-        $data = [
-            'name' => 'Beras Premium Updated',
-            'current_stock' => 999
-        ];
-        
-        $existingMaterial = createMaterialMock([
-            'id' => $materialId,
-            'name' => 'Beras Premium',
-            'current_stock' => 50
-        ]);
+    it('successfully updates category', function () {
+        $data = ['name' => 'Bahan Pokok Updated'];
 
-        $updatedMaterial = createMaterialMock([
-            'id' => $materialId,
-            'name' => 'Beras Premium Updated',
-            'current_stock' => 50
+        $existingCategory = new RawMaterialCategory([
+            'id'   => 1,
+            'name' => 'Bahan Pokok',
         ]);
+        $existingCategory->id = 1;
 
-        $this->materialRepository
+        $updatedCategory = new RawMaterialCategory([
+            'id'   => 1,
+            'name' => 'Bahan Pokok Updated',
+        ]);
+        $updatedCategory->id = 1;
+
+        $this->categoryRepository
             ->shouldReceive('findById')
-            ->once()
-            ->with($materialId)
-            ->andReturn($existingMaterial);
-        
-        $this->materialRepository
+            ->twice()
+            ->with(1)
+            ->andReturn($existingCategory, $updatedCategory);
+
+        $this->categoryRepository
             ->shouldReceive('update')
             ->once()
-            ->with($materialId, Mockery::on(function ($payload) {
-                return !array_key_exists('current_stock', $payload) &&
-                       $payload['name'] === 'Beras Premium Updated';
-            }))
+            ->with(1, $data)
             ->andReturn(true);
-        
-        $this->materialRepository
-            ->shouldReceive('findById')
-            ->once()
-            ->with($materialId)
-            ->andReturn($updatedMaterial);
 
-        $result = $this->inventoryService->updateMaterial($materialId, $data);
-        
-        expect($result)->toBeInstanceOf(RawMaterial::class)
-            ->and($result->name)->toBe('Beras Premium Updated')
-            ->and((float)$result->current_stock)->toEqual(50.0);
+        $result = $this->categoryService->updateCategory(1, $data);
+
+        expect($result)->toBeInstanceOf(RawMaterialCategory::class)
+            ->and($result->name)->toBe('Bahan Pokok Updated');
     });
 
-    it('successfully deletes material', function () {
-        $materialId = 1;
-        $existingMaterial = createMaterialMock(['id' => $materialId]);
+    it('successfully deletes category without relations', function () {
+        $existingCategory = new RawMaterialCategory(['id' => 1]);
+        $existingCategory->id = 1;
 
-        $this->materialRepository
+        $this->categoryRepository
             ->shouldReceive('findById')
             ->once()
-            ->with($materialId)
-            ->andReturn($existingMaterial);
-        
-        $this->materialRepository
+            ->with(1)
+            ->andReturn($existingCategory);
+
+        $this->categoryRepository
             ->shouldReceive('delete')
             ->once()
-            ->with($materialId)
+            ->with(1)
             ->andReturn(true);
 
-        $result = $this->inventoryService->deleteMaterial($materialId);
-        
-        expect($result)->toBeTrue();
+        expect($this->categoryService->deleteCategory(1))->toBeTrue();
     });
 });
 
 // ==========================================
-// NEGATIVE PATH TESTS
+// 2. NEGATIVE PATH — MATERIAL CATEGORY
 // ==========================================
 
-describe('Negative Path Tests - Material Master', function () {
-    it('throws ModelNotFoundException when material not found', function () {
-        $materialId = 999;
-        
-        $this->materialRepository
+describe('Negative Path Tests', function () {
+
+    it('throws ModelNotFoundException when category not found', function () {
+        $this->categoryRepository
             ->shouldReceive('findById')
             ->once()
-            ->with($materialId)
+            ->with(999)
             ->andReturn(null);
 
-        expect(fn() => $this->inventoryService->getMaterialById($materialId))
-            ->toThrow(ModelNotFoundException::class, "Raw material with ID {$materialId} not found.");
+        expect(fn () => $this->categoryService->getCategoryById(999))
+            ->toThrow(ModelNotFoundException::class, 'Raw material category with ID 999 not found.');
     });
 
-    it('throws ModelNotFoundException when updating non-existent material', function () {
-        $materialId = 999;
-        
-        $this->materialRepository
+    it('throws ModelNotFoundException when updating non-existent category', function () {
+        $this->categoryRepository
             ->shouldReceive('findById')
             ->once()
-            ->with($materialId)
+            ->with(999)
             ->andReturn(null);
 
-        expect(fn() => $this->inventoryService->updateMaterial($materialId, ['name' => 'Test']))
-            ->toThrow(ModelNotFoundException::class, "Raw material with ID {$materialId} not found.");
+        expect(fn () => $this->categoryService->updateCategory(999, ['name' => 'Test']))
+            ->toThrow(ModelNotFoundException::class, 'Raw material category with ID 999 not found.');
     });
 
-    it('throws ModelNotFoundException when deleting non-existent material', function () {
-        $materialId = 999;
-        
-        $this->materialRepository
+    it('throws ModelNotFoundException when deleting non-existent category', function () {
+        $this->categoryRepository
             ->shouldReceive('findById')
             ->once()
-            ->with($materialId)
+            ->with(999)
             ->andReturn(null);
 
-        expect(fn() => $this->inventoryService->deleteMaterial($materialId))
-            ->toThrow(ModelNotFoundException::class, "Raw material with ID {$materialId} not found.");
+        expect(fn () => $this->categoryService->deleteCategory(999))
+            ->toThrow(ModelNotFoundException::class, 'Raw material category with ID 999 not found.');
     });
 
-    it('logs error and rethrows when create material fails', function () {
-        $data = ['name' => 'Test Material'];
+    it('logs error and rethrows when create category fails', function () {
+        $data = ['name' => 'Test Category'];
         $exception = new Exception('Database connection failed');
-        
+
         Log::shouldReceive('error')
             ->once()
-            ->with('Failed to create raw material: Database connection failed');
-        
-        $this->materialRepository
+            ->with('Failed to create raw material category: Database connection failed');
+
+        $this->categoryRepository
             ->shouldReceive('create')
-            ->with(Mockery::on(function ($payload) {
-                return $payload['current_stock'] === 0;
-            }))
+            ->with($data)
             ->andThrow($exception);
 
-        expect(fn() => $this->inventoryService->createMaterial($data))
+        expect(fn () => $this->categoryService->createCategory($data))
             ->toThrow(Exception::class, 'Database connection failed');
     });
 
-    it('logs error and rethrows when update material fails', function () {
-        $materialId = 1;
-        $data = ['name' => 'Updated Name'];
-        $existingMaterial = createMaterialMock(['id' => $materialId]);
+    it('logs error and rethrows when update category fails', function () {
+        $existingCategory = new RawMaterialCategory(['id' => 1]);
+        $existingCategory->id = 1;
         $exception = new Exception('Update failed');
-        
-        $this->materialRepository
+
+        $this->categoryRepository
             ->shouldReceive('findById')
             ->once()
-            ->with($materialId)
-            ->andReturn($existingMaterial);
-        
-        $this->materialRepository
+            ->with(1)
+            ->andReturn($existingCategory);
+
+        $this->categoryRepository
             ->shouldReceive('update')
             ->once()
             ->andThrow($exception);
-        
+
         Log::shouldReceive('error')
             ->once()
-            ->with("Failed to update raw material ID {$materialId}: Update failed");
+            ->with('Failed to update raw material category ID 1: Update failed');
 
-        expect(fn() => $this->inventoryService->updateMaterial($materialId, $data))
+        expect(fn () => $this->categoryService->updateCategory(1, ['name' => 'X']))
             ->toThrow(Exception::class, 'Update failed');
     });
-});
 
-// ==========================================
-// 2. EQUIVALENCE PARTITIONING (Unit Level)
-// ==========================================
+    it('does NOT log when update fails because category not found (404)', function () {
+        Log::shouldReceive('error')->never();
 
-describe('Equivalence Partitioning Tests - Stock Movement Normalization', function () {
-    test('normalizes IN type to positive quantity', function () {
-        $type = 'IN';
-        $quantity = -50;
-        $absQuantity = abs($quantity);
-        
-        $normalizedQuantity = match ($type) {
-            'OUT' => -$absQuantity,
-            'IN' => $absQuantity,
-            default => $quantity,
-        };
-        
-        expect($normalizedQuantity)->toBe(50);
-    });
-    
-    test('normalizes OUT type to negative quantity', function () {
-        $type = 'OUT';
-        $quantity = -30;
-        $absQuantity = abs($quantity);
-        
-        $normalizedQuantity = match ($type) {
-            'OUT' => -$absQuantity,
-            'IN' => $absQuantity,
-            default => $quantity,
-        };
-        
-        expect($normalizedQuantity)->toBe(-30);
-    });
-    
-    test('handles ADJUSTMENT type with raw value', function () {
-        $type = 'ADJUSTMENT';
-        $quantity = -15;
-        $absQuantity = abs($quantity);
-        
-        $normalizedQuantity = match ($type) {
-            'OUT' => -$absQuantity,
-            'IN' => $absQuantity,
-            default => $quantity,
-        };
-        
-        expect($normalizedQuantity)->toBe(-15);
+        $this->categoryRepository
+            ->shouldReceive('findById')
+            ->once()
+            ->with(999)
+            ->andReturn(null);
+
+        expect(fn () => $this->categoryService->updateCategory(999, ['name' => 'X']))
+            ->toThrow(ModelNotFoundException::class);
     });
 
-    test('handles ADJUSTMENT type with positive value', function () {
-        $type = 'ADJUSTMENT';
-        $quantity = 25;
-        $absQuantity = abs($quantity);
-        
-        $normalizedQuantity = match ($type) {
-            'OUT' => -$absQuantity,
-            'IN' => $absQuantity,
-            default => $quantity,
-        };
-        
-        expect($normalizedQuantity)->toBe(25);
-    });
-});
+    it('throws ConflictHttpException when deleting category with related materials', function () {
+        $existingCategory = new RawMaterialCategory(['id' => 1]);
+        $existingCategory->id = 1;
 
-// ==========================================
-// 3. BOUNDARY VALUE ANALYSIS (Unit Level)
-// ==========================================
+        $this->categoryRepository
+            ->shouldReceive('findById')
+            ->once()
+            ->with(1)
+            ->andReturn($existingCategory);
 
-describe('Boundary Value Analysis Tests - Quantity Limits', function () {
-    test('handles zero quantity for IN movement', function () {
-        $type = 'IN';
-        $quantity = 0;
-        $balanceBefore = 100;
-        $absQuantity = abs($quantity);
-        
-        $normalizedQuantity = match ($type) {
-            'OUT' => -$absQuantity,
-            'IN' => $absQuantity,
-            default => $quantity,
-        };
-        
-        $balanceAfter = round($balanceBefore + $normalizedQuantity, 2);
-        
-        expect($balanceAfter)->toBe(100.0);
-    });
-    
-    test('handles boundary where stock exactly equals requested OUT quantity', function () {
-        $type = 'OUT';
-        $quantity = 100;
-        $balanceBefore = 100;
-        $absQuantity = abs($quantity);
-        
-        $normalizedQuantity = match ($type) {
-            'OUT' => -$absQuantity,
-            'IN' => $absQuantity,
-            default => $quantity,
-        };
-        
-        $balanceAfter = round($balanceBefore + $normalizedQuantity, 2);
-        
-        expect($balanceAfter)->toBe(0.0)
-            ->and($balanceAfter < 0)->toBeFalse();
-    });
-    
-    test('detects insufficient stock when OUT quantity exceeds balance', function () {
-        $type = 'OUT';
-        $quantity = 100.01;
-        $balanceBefore = 100;
-        $absQuantity = abs($quantity);
-        
-        $normalizedQuantity = match ($type) {
-            'OUT' => -$absQuantity,
-            'IN' => $absQuantity,
-            default => $quantity,
-        };
-        
-        $balanceAfter = round($balanceBefore + $normalizedQuantity, 2);
-        
-        expect($balanceAfter < 0)->toBeTrue();
+        $queryException = new QueryException(
+            'postgres',
+            'DELETE FROM raw_material_categories WHERE id = ?',
+            [1],
+            new Exception('Foreign key violation')
+        );
+
+        $reflection = new ReflectionClass($queryException);
+        $codeProperty = $reflection->getProperty('code');
+        $codeProperty->setAccessible(true);
+        $codeProperty->setValue($queryException, '23503');
+
+        $this->categoryRepository
+            ->shouldReceive('delete')
+            ->once()
+            ->with(1)
+            ->andThrow($queryException);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(Mockery::on(fn ($message) =>
+                str_contains($message, 'Database error while deleting category ID 1')
+            ));
+
+        expect(fn () => $this->categoryService->deleteCategory(1))
+            ->toThrow(ConflictHttpException::class, 'Cannot delete this category because it contains existing raw materials.');
     });
 
-    test('detects insufficient stock when ADJUSTMENT exceeds balance negatively', function () {
-        $type = 'ADJUSTMENT';
-        $quantity = -100.01;
-        $balanceBefore = 100;
-        
-        $normalizedQuantity = match ($type) {
-            'OUT' => -abs($quantity),
-            'IN' => abs($quantity),
-            default => $quantity,
-        };
-        
-        $balanceAfter = round($balanceBefore + $normalizedQuantity, 2);
-        
-        expect($balanceAfter < 0)->toBeTrue();
+    it('rethrows generic QueryException when not FK violation', function () {
+        $existingCategory = new RawMaterialCategory(['id' => 1]);
+        $existingCategory->id = 1;
+
+        $this->categoryRepository
+            ->shouldReceive('findById')
+            ->once()
+            ->with(1)
+            ->andReturn($existingCategory);
+
+        $queryException = new QueryException(
+            'postgres',
+            'DELETE FROM raw_material_categories WHERE id = ?',
+            [1],
+            new Exception('Generic database error')
+        );
+
+        $this->categoryRepository
+            ->shouldReceive('delete')
+            ->once()
+            ->with(1)
+            ->andThrow($queryException);
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with(Mockery::on(fn ($message) =>
+                str_contains($message, 'Database error while deleting category ID 1')
+            ));
+
+        expect(fn () => $this->categoryService->deleteCategory(1))
+            ->toThrow(QueryException::class);
     });
 });
 
 // ==========================================
-// 4. EDGE CASES & CORNER CASES (Unit Level)
+// 3. EQUIVALENCE PARTITIONING
+// ==========================================
+
+describe('Equivalence Partitioning Tests', function () {
+
+    it('accepts empty filters array for pagination', function () {
+        $paginator = Mockery::mock(LengthAwarePaginator::class);
+
+        $this->categoryRepository
+            ->shouldReceive('getAll')
+            ->once()
+            ->with([], 15)
+            ->andReturn($paginator);
+
+        expect($this->categoryService->getPaginatedCategories())
+            ->toBeInstanceOf(LengthAwarePaginator::class);
+    });
+
+    it('accepts complex filters array', function () {
+        $filters = [
+            'keyword'    => 'bahan',
+            'sort_by'    => 'name',
+            'sort_order' => 'asc',
+        ];
+        $paginator = Mockery::mock(LengthAwarePaginator::class);
+
+        $this->categoryRepository
+            ->shouldReceive('getAll')
+            ->once()
+            ->with($filters, 20)
+            ->andReturn($paginator);
+
+        expect($this->categoryService->getPaginatedCategories(20, $filters))
+            ->toBeInstanceOf(LengthAwarePaginator::class);
+    });
+
+    it('handles empty data array for create', function () {
+        $categoryMock = new RawMaterialCategory();
+        $categoryMock->id = 1;
+
+        $this->categoryRepository
+            ->shouldReceive('create')
+            ->once()
+            ->with([])
+            ->andReturn($categoryMock);
+
+        expect($this->categoryService->createCategory([]))
+            ->toBeInstanceOf(RawMaterialCategory::class);
+    });
+
+    it('handles null values in data array', function () {
+        $data = ['name' => null, 'description' => null];
+
+        $categoryMock = new RawMaterialCategory($data);
+        $categoryMock->id = 1;
+
+        $this->categoryRepository
+            ->shouldReceive('create')
+            ->once()
+            ->with($data)
+            ->andReturn($categoryMock);
+
+        $result = $this->categoryService->createCategory($data);
+
+        expect($result)->toBeInstanceOf(RawMaterialCategory::class)
+            ->and($result->name)->toBeNull()
+            ->and($result->description)->toBeNull();
+    });
+});
+
+// ==========================================
+// 4. BOUNDARY VALUE ANALYSIS
+// ==========================================
+
+describe('Boundary Value Analysis Tests', function () {
+
+    test('cache TTL is exactly 86400 seconds (24 hours)', function () {
+        $reflection = new ReflectionClass(RawMaterialCategoryService::class);
+
+        expect($reflection->getConstant('CACHE_TTL'))
+            ->toBe(86400)
+            ->toBeInt();
+    });
+
+    test('cache TTL is within acceptable boundary range', function () {
+        $reflection = new ReflectionClass(RawMaterialCategoryService::class);
+        $cacheTtl = $reflection->getConstant('CACHE_TTL');
+
+        expect($cacheTtl)
+            ->toBeGreaterThanOrEqual(3600)
+            ->toBeLessThanOrEqual(604800);
+    });
+
+    test('cache TTL is positive and non-zero', function () {
+        $reflection = new ReflectionClass(RawMaterialCategoryService::class);
+        $cacheTtl = $reflection->getConstant('CACHE_TTL');
+
+        expect($cacheTtl)
+            ->toBeGreaterThan(0)
+            ->not->toBeNull();
+    });
+
+    it('handles perPage = 1 (minimum meaningful value)', function () {
+        $paginator = Mockery::mock(LengthAwarePaginator::class);
+
+        $this->categoryRepository
+            ->shouldReceive('getAll')
+            ->once()
+            ->with([], 1)
+            ->andReturn($paginator);
+
+        expect($this->categoryService->getPaginatedCategories(1))
+            ->toBeInstanceOf(LengthAwarePaginator::class);
+    });
+
+    it('handles perPage = PHP_INT_MAX gracefully', function () {
+        $paginator = Mockery::mock(LengthAwarePaginator::class);
+
+        $this->categoryRepository
+            ->shouldReceive('getAll')
+            ->once()
+            ->with([], PHP_INT_MAX)
+            ->andReturn($paginator);
+
+        expect($this->categoryService->getPaginatedCategories(PHP_INT_MAX))
+            ->toBeInstanceOf(LengthAwarePaginator::class);
+    });
+});
+
+// ==========================================
+// 5. EDGE CASES & CORNER CASES
 // ==========================================
 
 describe('Edge Cases & Corner Cases Tests', function () {
-    test('handles floating point precision correctly', function () {
-        $balanceBefore = 0.2;
-        $quantity = 0.1;
-        $balanceAfter = round($balanceBefore + $quantity, 2);
-        
-        expect($balanceAfter)->toBe(0.3);
-    });
-    
-    test('rounds balance to 2 decimal places', function () {
-        $balanceBefore = 10.456;
-        $quantity = 0.123;
-        $balanceAfter = round($balanceBefore + $quantity, 2);
-        
-        expect($balanceAfter)->toBe(10.58);
-    });
-    
-    test('avoids floating point accumulation errors', function () {
-        $balanceBefore = 0.2;
-        $quantity = 0.1;
-        $balanceAfter = round($balanceBefore + $quantity, 2);
-        
-        // 0.2 + 0.1 should be exactly 0.3 when rounded
-        expect($balanceAfter)->toBe(0.3);
+
+    it('handles category ID at boundary zero', function () {
+        $this->categoryRepository
+            ->shouldReceive('findById')
+            ->once()
+            ->with(0)
+            ->andReturn(null);
+
+        expect(fn () => $this->categoryService->getCategoryById(0))
+            ->toThrow(ModelNotFoundException::class, 'Raw material category with ID 0 not found.');
     });
 
-    test('handles very large quantity values', function () {
-        $balanceBefore = 1000000.00;
-        $quantity = 999999.99;
-        $balanceAfter = round($balanceBefore + $quantity, 2);
-        
-        expect($balanceAfter)->toBe(1999999.99);
+    it('handles negative category ID', function () {
+        $this->categoryRepository
+            ->shouldReceive('findById')
+            ->once()
+            ->with(-5)
+            ->andReturn(null);
+
+        expect(fn () => $this->categoryService->getCategoryById(-5))
+            ->toThrow(ModelNotFoundException::class, 'Raw material category with ID -5 not found.');
     });
 
-    test('handles very small quantity values', function () {
-        $balanceBefore = 0.01;
-        $quantity = 0.01;
-        $balanceAfter = round($balanceBefore + $quantity, 2);
-        
-        expect($balanceAfter)->toBe(0.02);
+    it('handles PHP_INT_MAX as category ID', function () {
+        $this->categoryRepository
+            ->shouldReceive('findById')
+            ->once()
+            ->with(PHP_INT_MAX)
+            ->andReturn(null);
+
+        expect(fn () => $this->categoryService->getCategoryById(PHP_INT_MAX))
+            ->toThrow(ModelNotFoundException::class, 'Raw material category with ID ' . PHP_INT_MAX . ' not found.');
+    });
+
+    it('handles update with empty data array', function () {
+        $existingCategory = new RawMaterialCategory([
+            'id'   => 1,
+            'name' => 'Original Name',
+        ]);
+        $existingCategory->id = 1;
+
+        $this->categoryRepository
+            ->shouldReceive('findById')
+            ->twice()
+            ->with(1)
+            ->andReturn($existingCategory);
+
+        $this->categoryRepository
+            ->shouldReceive('update')
+            ->once()
+            ->with(1, [])
+            ->andReturn(true);
+
+        $result = $this->categoryService->updateCategory(1, []);
+
+        expect($result)->toBeInstanceOf(RawMaterialCategory::class)
+            ->and($result->name)->toBe('Original Name');
+    });
+
+    it('handles very long string in name field', function () {
+        $longName = str_repeat('A', 5000);
+        $data = ['name' => $longName];
+
+        $categoryMock = new RawMaterialCategory($data);
+        $categoryMock->id = 1;
+
+        $this->categoryRepository
+            ->shouldReceive('create')
+            ->once()
+            ->with($data)
+            ->andReturn($categoryMock);
+
+        $result = $this->categoryService->createCategory($data);
+
+        expect($result->name)->toBe($longName);
+    });
+
+    it('handles unicode characters in category name', function () {
+        $data = ['name' => 'Bumbu Dapur 日本語 🍳'];
+
+        $categoryMock = new RawMaterialCategory($data);
+        $categoryMock->id = 1;
+
+        $this->categoryRepository
+            ->shouldReceive('create')
+            ->once()
+            ->with($data)
+            ->andReturn($categoryMock);
+
+        expect($this->categoryService->createCategory($data)->name)
+            ->toBe('Bumbu Dapur 日本語 🍳');
     });
 });
 
 // ==========================================
-// 5. DATABASE TRANSACTION TESTS (Unit Level)
+// 6. DATABASE TRANSACTION TESTS
 // ==========================================
 
 describe('Database Transaction Tests', function () {
-    it('wraps material creation in transaction', function () {
-        $transactionCalled = false;
-        
+
+    it('wraps category creation in transaction', function () {
+        $called = false;
+
         DB::shouldReceive('transaction')
             ->once()
             ->with(Mockery::type('Closure'))
-            ->andReturnUsing(function ($closure) use (&$transactionCalled) {
-                $transactionCalled = true;
+            ->andReturnUsing(function ($closure) use (&$called) {
+                $called = true;
                 return $closure();
             });
-        
-        $materialMock = createMaterialMock(['name' => 'Test']);
-        
-        $this->materialRepository
+
+        $categoryMock = new RawMaterialCategory(['name' => 'Test']);
+
+        $this->categoryRepository
             ->shouldReceive('create')
             ->once()
-            ->andReturn($materialMock);
+            ->andReturn($categoryMock);
 
-        $this->inventoryService->createMaterial(['name' => 'Test']);
-        
-        expect($transactionCalled)->toBeTrue();
+        $this->categoryService->createCategory(['name' => 'Test']);
+
+        expect($called)->toBeTrue();
     });
 
-    it('wraps material update in transaction', function () {
-        $transactionCalled = false;
-        
+    it('wraps category update in transaction', function () {
+        $called = false;
+
         DB::shouldReceive('transaction')
             ->once()
             ->with(Mockery::type('Closure'))
-            ->andReturnUsing(function ($closure) use (&$transactionCalled) {
-                $transactionCalled = true;
+            ->andReturnUsing(function ($closure) use (&$called) {
+                $called = true;
                 return $closure();
             });
-        
-        $materialId = 1;
-        $existingMaterial = createMaterialMock(['id' => $materialId]);
-        
-        $this->materialRepository
+
+        $existingCategory = new RawMaterialCategory(['id' => 1]);
+        $existingCategory->id = 1;
+
+        $this->categoryRepository
             ->shouldReceive('findById')
             ->twice()
-            ->with($materialId)
-            ->andReturn($existingMaterial);
-        
-        $this->materialRepository
+            ->with(1)
+            ->andReturn($existingCategory);
+
+        $this->categoryRepository
             ->shouldReceive('update')
             ->once()
             ->andReturn(true);
 
-        $this->inventoryService->updateMaterial($materialId, ['name' => 'Updated']);
-        
-        expect($transactionCalled)->toBeTrue();
+        $this->categoryService->updateCategory(1, ['name' => 'Updated']);
+
+        expect($called)->toBeTrue();
     });
 
-    it('wraps stock movement processing in transaction', function () {
-        $transactionCalled = false;
-        
+    it('logs error when transaction fails during creation', function () {
         DB::shouldReceive('transaction')
             ->once()
             ->with(Mockery::type('Closure'))
-            ->andReturnUsing(function ($closure) use (&$transactionCalled) {
-                $transactionCalled = true;
-                return $closure();
-            });
-        
-        // This test requires mocking RawMaterial::where which is complex
-        // For now, we just verify the transaction is called
-        try {
-            $this->inventoryService->processStockMovement(
-                1, 'user-123', 'IN', 50, 'Test'
-            );
-        } catch (Exception $e) {
-            // Expected to fail due to RawMaterial::where not being mocked
-        }
-        
-        expect($transactionCalled)->toBeTrue();
+            ->andThrow(new Exception('Transaction failed'));
+
+        Log::shouldReceive('error')
+            ->once()
+            ->with('Failed to create raw material category: Transaction failed');
+
+        expect(fn () => $this->categoryService->createCategory(['name' => 'Test']))
+            ->toThrow(Exception::class, 'Transaction failed');
+    });
+
+    it('does NOT wrap delete in transaction (sesuai service)', function () {
+        $existingCategory = new RawMaterialCategory(['id' => 1]);
+        $existingCategory->id = 1;
+
+        $this->categoryRepository
+            ->shouldReceive('findById')
+            ->once()
+            ->with(1)
+            ->andReturn($existingCategory);
+
+        $this->categoryRepository
+            ->shouldReceive('delete')
+            ->once()
+            ->andReturn(true);
+
+        DB::shouldReceive('transaction')->never();
+
+        expect($this->categoryService->deleteCategory(1))->toBeTrue();
     });
 });
 
 // ==========================================
-// 6. INSUFFICIENT STOCK EXCEPTION TESTS
+// 7. CACHE BEHAVIOR TESTS
 // ==========================================
 
-describe('InsufficientStockException Tests', function () {
-    test('exception has correct message format', function () {
-        $exception = new InsufficientStockException(
-            'Insufficient stock. Available: 100, Requested deduction: 200'
-        );
-        
-        expect($exception->getMessage())
-            ->toBe('Insufficient stock. Available: 100, Requested deduction: 200');
+describe('Cache Behavior Tests', function () {
+
+    it('returns all categories with cache miss (closure executed, then hydrate)', function () {
+        $categories = new EloquentCollection([
+            new RawMaterialCategory(['id' => 1, 'name' => 'Bahan Pokok', 'description' => 'A']),
+            new RawMaterialCategory(['id' => 2, 'name' => 'Bumbu Dapur', 'description' => 'B']),
+        ]);
+
+        Cache::shouldReceive('remember')
+            ->once()
+            ->with('raw_material_categories:all', 86400, Mockery::type('Closure'))
+            ->andReturnUsing(fn ($key, $ttl, $closure) => $closure());
+
+        $this->categoryRepository
+            ->shouldReceive('getAll')
+            ->once()
+            ->andReturn($categories);
+
+        $result = $this->categoryService->getAllCategories();
+
+        expect($result)->toBeInstanceOf(EloquentCollection::class)
+            ->and($result)->toHaveCount(2)
+            ->and($result[0])->toBeInstanceOf(RawMaterialCategory::class)
+            ->and($result[0]->name)->toBe('Bahan Pokok')
+            ->and($result[1]->name)->toBe('Bumbu Dapur');
     });
 
-    test('exception renders correct JSON response', function () {
-        $exception = new InsufficientStockException(
-            'Insufficient stock. Available: 100, Requested deduction: 200'
-        );
-        
-        $request = Mockery::mock(\Illuminate\Http\Request::class);
-        $response = $exception->render($request);
-        
-        expect($response->getStatusCode())->toBe(422);
-        
-        $data = json_decode($response->getContent(), true);
-        expect($data['message'])
-            ->toBe('Insufficient stock. Available: 100, Requested deduction: 200')
-            ->and($data['errors']['quantity'][0])
-            ->toBe('Insufficient stock. Available: 100, Requested deduction: 200');
+    it('returns all categories from cache hit (repository NOT called)', function () {
+        $cachedData = [
+            ['id' => 1, 'name' => 'Bahan Pokok'],
+            ['id' => 2, 'name' => 'Bumbu Dapur'],
+        ];
+
+        Cache::shouldReceive('remember')
+            ->once()
+            ->with('raw_material_categories:all', 86400, Mockery::type('Closure'))
+            ->andReturn($cachedData);
+
+        $this->categoryRepository->shouldNotReceive('getAll');
+
+        $result = $this->categoryService->getAllCategories();
+
+        expect($result)->toBeInstanceOf(EloquentCollection::class)
+            ->and($result)->toHaveCount(2)
+            ->and($result[0])->toBeInstanceOf(RawMaterialCategory::class)
+            ->and($result[0]->name)->toBe('Bahan Pokok')
+            ->and($result[1]->name)->toBe('Bumbu Dapur');
     });
-});
 
-// ==========================================
-// 7. LOGGING TESTS
-// ==========================================
+    it('uses correct cache key', function () {
+        $categories = new EloquentCollection([
+            new RawMaterialCategory(['id' => 1, 'name' => 'Test']),
+        ]);
 
-describe('Logging Tests', function () {
-    it('does not log InsufficientStockException (business logic error)', function () {
-        // InsufficientStockException and ModelNotFoundException should NOT be logged
-        // because they are business logic errors, not system errors
-        
-        Log::shouldReceive('error')->never();
-        
-        // This is verified by the catch block in processStockMovement:
-        // catch (InsufficientStockException | ModelNotFoundException $e) {
-        //     throw $e; // No logging
-        // }
-        
+        Cache::shouldReceive('remember')
+            ->once()
+            ->with('raw_material_categories:all', 86400, Mockery::type('Closure'))
+            ->andReturnUsing(fn ($key, $ttl, $closure) => $closure());
+
+        $this->categoryRepository
+            ->shouldReceive('getAll')
+            ->once()
+            ->andReturn($categories);
+
+        $this->categoryService->getAllCategories();
+
         expect(true)->toBeTrue();
     });
 
-    it('logs unexpected exceptions', function () {
-        $materialId = 1;
-        $data = ['name' => 'Test'];
-        $existingMaterial = createMaterialMock(['id' => $materialId]);
-        $exception = new Exception('Unexpected error');
-        
-        $this->materialRepository
-            ->shouldReceive('findById')
-            ->once()
-            ->with($materialId)
-            ->andReturn($existingMaterial);
-        
-        $this->materialRepository
-            ->shouldReceive('update')
-            ->once()
-            ->andThrow($exception);
-        
-        Log::shouldReceive('error')
-            ->once()
-            ->with("Failed to update raw material ID {$materialId}: Unexpected error");
+    it('rehydrates cached data into Eloquent Collection', function () {
+        $cachedData = [
+            ['id' => 1, 'name' => 'Bahan Pokok', 'description' => 'Test'],
+        ];
 
-        expect(fn() => $this->inventoryService->updateMaterial($materialId, $data))
-            ->toThrow(Exception::class, 'Unexpected error');
+        Cache::shouldReceive('remember')
+            ->once()
+            ->andReturn($cachedData);
+
+        $result = $this->categoryService->getAllCategories();
+
+        expect($result)->toBeInstanceOf(EloquentCollection::class)
+            ->and($result[0])->toBeInstanceOf(RawMaterialCategory::class)
+            ->and($result[0]->name)->toBe('Bahan Pokok')
+            ->and($result[0]->description)->toBe('Test');
+    });
+
+    it('handles empty cached data', function () {
+        Cache::shouldReceive('remember')
+            ->once()
+            ->andReturn([]);
+
+        $result = $this->categoryService->getAllCategories();
+
+        expect($result)->toBeInstanceOf(EloquentCollection::class)
+            ->and($result)->toHaveCount(0)
+            ->and($result->isEmpty())->toBeTrue();
+    });
+
+    it('service does NOT call Cache::forget (delegated to observer)', function () {
+        // Observer bertanggung jawab invalidate cache.
+        // Service hanya baca/tulis cache via remember().
+        Cache::shouldReceive('forget')->never();
+
+        $categories = new EloquentCollection([
+            new RawMaterialCategory(['id' => 1, 'name' => 'Test']),
+        ]);
+
+        Cache::shouldReceive('remember')
+            ->once()
+            ->andReturnUsing(fn ($key, $ttl, $closure) => $closure());
+
+        $this->categoryRepository
+            ->shouldReceive('getAll')
+            ->once()
+            ->andReturn($categories);
+
+        $this->categoryService->getAllCategories();
+
+        expect(true)->toBeTrue();
     });
 });

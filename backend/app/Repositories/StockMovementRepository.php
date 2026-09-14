@@ -37,21 +37,30 @@ class StockMovementRepository implements StockMovementRepositoryInterface
         // Load relations to avoid N+1 issues
         $query = $this->model->with(['rawMaterial', 'user']);
 
-        if (isset($filters['raw_material_id'])) {
+        if (!empty($filters['raw_material_id'])) {
             $query->where('raw_material_id', $filters['raw_material_id']);
         }
 
-        if (isset($filters['movement_type'])) {
+        if (!empty($filters['movement_type'])) {
             $query->ofType($filters['movement_type']);
         }
 
         // Filter by user_id (UUID format string)
-        if (isset($filters['user_id'])) {
+        if (!empty($filters['user_id'])) {
             $query->where('user_id', $filters['user_id']);
         }
 
-        if (isset($filters['start_date']) && isset($filters['end_date'])) {
-            $query->whereBetween('created_at', [$filters['start_date'], $filters['end_date']]);
+        // ==========================================
+        // DATE RANGE FILTER
+        // ==========================================
+        // Use whereDate() to compare DATE-only (ignore time component).
+        // This ensures end_date includes the entire day (00:00:00 → 23:59:59),
+        // preventing missed records like a movement at 09:21 on the same day.
+        if (!empty($filters['start_date'])) {
+            $query->whereDate('created_at', '>=', $filters['start_date']);
+        }
+        if (!empty($filters['end_date'])) {
+            $query->whereDate('created_at', '<=', $filters['end_date']);
         }
 
         $query->recent();

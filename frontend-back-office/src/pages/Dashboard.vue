@@ -6,7 +6,6 @@ const authStore = useAuthStore();
 </script>
 
 <template>
-  <BackofficeLayout>
     
     <!-- Hapus 'h-full' agar wadah memanjang natural ke bawah mengikuti isinya -->
     <div class="bg-surface/40 backdrop-blur-xl border border-white/60 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-8">
@@ -64,5 +63,4 @@ const authStore = useAuthStore();
 
     </div>
 
-  </BackofficeLayout>
 </template>

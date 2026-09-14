@@ -15,20 +15,21 @@ class InventorySeeder extends Seeder
      */
     public function run(): void
     {
-        $this->command->info('📦 Seeding Inventory Data (Categories & Materials)...');
+        $this->command->info('Seeding inventory data (categories & materials)...');
 
-        // Ambil satu user admin/inventory untuk dicatat di audit trail mutasi stok
-        $admin = User::where('role', 'admin')->first() ?? User::factory()->create(['role' => 'admin']);
+        // Get an admin/inventory user to record in the stock movement audit trail.
+        $admin = User::where('role', 'admin')->first()
+            ?? User::factory()->create(['role' => 'admin']);
 
         // ==========================================
-        // 1. DATA KATEGORI REALISTIS
+        // 1. REALISTIC CATEGORY DATA
         // ==========================================
         $categoriesData = [
-            'Bahan Pokok'    => 'Kategori untuk beras, minyak, tepung, gula, dll.',
-            'Protein'        => 'Kategori untuk daging sapi, ayam, ikan, telur.',
-            'Sayuran & Buah' => 'Kategori untuk sayuran segar dan buah-buahan.',
-            'Bumbu & Rempah' => 'Kategori untuk bawang, garam, lada, saus, dll.',
-            'Minuman'        => 'Kategori untuk kopi, teh, sirup, susu.',
+            'Staples'         => 'Category for rice, cooking oil, flour, sugar, etc.',
+            'Protein'         => 'Category for beef, chicken, fish, eggs.',
+            'Vegetables & Fruits' => 'Category for fresh vegetables and fruits.',
+            'Spices & Seasonings' => 'Category for shallots, salt, pepper, sauces, etc.',
+            'Beverages'       => 'Category for coffee, tea, syrup, milk.',
         ];
 
         $categories = [];
@@ -40,29 +41,29 @@ class InventorySeeder extends Seeder
         }
 
         // ==========================================
-        // 2. DATA BAHAN BAKU REALISTIS
+        // 2. REALISTIC RAW MATERIAL DATA
         // ==========================================
         $materialsData = [
-            // Bahan Pokok
-            ['cat' => 'Bahan Pokok', 'sku' => 'RM-BP-001', 'name' => 'Beras Premium', 'unit' => 'kg', 'min_stock' => 50],
-            ['cat' => 'Bahan Pokok', 'sku' => 'RM-BP-002', 'name' => 'Minyak Goreng Kelapa Sawit', 'unit' => 'liter', 'min_stock' => 20],
-            ['cat' => 'Bahan Pokok', 'sku' => 'RM-BP-003', 'name' => 'Tepung Terigu Serbaguna', 'unit' => 'kg', 'min_stock' => 15],
-            ['cat' => 'Bahan Pokok', 'sku' => 'RM-BP-004', 'name' => 'Gula Pasir Putih', 'unit' => 'kg', 'min_stock' => 20],
-            
+            // Staples
+            ['cat' => 'Staples', 'sku' => 'RM-ST-001', 'name' => 'Premium Rice', 'unit' => 'kg', 'min_stock' => 50],
+            ['cat' => 'Staples', 'sku' => 'RM-ST-002', 'name' => 'Palm Cooking Oil', 'unit' => 'liter', 'min_stock' => 20],
+            ['cat' => 'Staples', 'sku' => 'RM-ST-003', 'name' => 'All-Purpose Wheat Flour', 'unit' => 'kg', 'min_stock' => 15],
+            ['cat' => 'Staples', 'sku' => 'RM-ST-004', 'name' => 'White Granulated Sugar', 'unit' => 'kg', 'min_stock' => 20],
+
             // Protein
-            ['cat' => 'Protein', 'sku' => 'RM-PR-001', 'name' => 'Daging Sapi Has Dalam (Tenderloin)', 'unit' => 'kg', 'min_stock' => 10],
-            ['cat' => 'Protein', 'sku' => 'RM-PR-002', 'name' => 'Daging Ayam Fillet Dada', 'unit' => 'kg', 'min_stock' => 15],
-            ['cat' => 'Protein', 'sku' => 'RM-PR-003', 'name' => 'Telur Ayam Horn', 'unit' => 'butir', 'min_stock' => 100],
-            
-            // Bumbu & Rempah
-            ['cat' => 'Bumbu & Rempah', 'sku' => 'RM-BM-001', 'name' => 'Bawang Merah', 'unit' => 'kg', 'min_stock' => 5],
-            ['cat' => 'Bumbu & Rempah', 'sku' => 'RM-BM-002', 'name' => 'Bawang Putih', 'unit' => 'kg', 'min_stock' => 5],
-            ['cat' => 'Bumbu & Rempah', 'sku' => 'RM-BM-003', 'name' => 'Garam Beryodium', 'unit' => 'kg', 'min_stock' => 10],
-            ['cat' => 'Bumbu & Rempah', 'sku' => 'RM-BM-004', 'name' => 'Kecap Manis', 'unit' => 'liter', 'min_stock' => 5],
-            
-            // Sayuran & Buah
-            ['cat' => 'Sayuran & Buah', 'sku' => 'RM-SY-001', 'name' => 'Tomat Merah Segar', 'unit' => 'kg', 'min_stock' => 5],
-            ['cat' => 'Sayuran & Buah', 'sku' => 'RM-SY-002', 'name' => 'Selada Hijau', 'unit' => 'kg', 'min_stock' => 3],
+            ['cat' => 'Protein', 'sku' => 'RM-PR-001', 'name' => 'Beef Tenderloin', 'unit' => 'kg', 'min_stock' => 10],
+            ['cat' => 'Protein', 'sku' => 'RM-PR-002', 'name' => 'Chicken Breast Fillet', 'unit' => 'kg', 'min_stock' => 15],
+            ['cat' => 'Protein', 'sku' => 'RM-PR-003', 'name' => 'Chicken Eggs', 'unit' => 'pcs', 'min_stock' => 100],
+
+            // Spices & Seasonings
+            ['cat' => 'Spices & Seasonings', 'sku' => 'RM-SP-001', 'name' => 'Shallots', 'unit' => 'kg', 'min_stock' => 5],
+            ['cat' => 'Spices & Seasonings', 'sku' => 'RM-SP-002', 'name' => 'Garlic', 'unit' => 'kg', 'min_stock' => 5],
+            ['cat' => 'Spices & Seasonings', 'sku' => 'RM-SP-003', 'name' => 'Iodized Salt', 'unit' => 'kg', 'min_stock' => 10],
+            ['cat' => 'Spices & Seasonings', 'sku' => 'RM-SP-004', 'name' => 'Sweet Soy Sauce', 'unit' => 'liter', 'min_stock' => 5],
+
+            // Vegetables & Fruits
+            ['cat' => 'Vegetables & Fruits', 'sku' => 'RM-VF-001', 'name' => 'Fresh Red Tomatoes', 'unit' => 'kg', 'min_stock' => 5],
+            ['cat' => 'Vegetables & Fruits', 'sku' => 'RM-VF-002', 'name' => 'Green Lettuce', 'unit' => 'kg', 'min_stock' => 3],
         ];
 
         foreach ($materialsData as $item) {
@@ -73,18 +74,19 @@ class InventorySeeder extends Seeder
                     'name'          => $item['name'],
                     'unit'          => $item['unit'],
                     'minimum_stock' => $item['min_stock'],
-                    'current_stock' => 0, // Set 0 di awal, akan diisi via StockMovement
+                    'current_stock' => 0, // Start at 0 — will be filled via StockMovement
                     'is_active'     => true,
                 ]
             );
 
             // ==========================================
-            // 3. INJEKSI STOK AWAL (STOCK IN)
+            // 3. INJECT INITIAL STOCK (STOCK IN)
             // ==========================================
-            // Agar data E2E bagus (tidak 0 stoknya), kita berikan initial stock yang sedikit lebih tinggi dari min_stock
+            // To make E2E data useful (not stuck at 0), give an initial stock
+            // slightly above the minimum stock.
             if ($material->wasRecentlyCreated) {
-                $initialQty = $item['min_stock'] * rand(2, 5); // Misal min 10, stok awal jadi 20 - 50
-                
+                $initialQty = $item['min_stock'] * rand(2, 5); // e.g., min 10 → initial 20-50
+
                 StockMovement::create([
                     'raw_material_id' => $material->id,
                     'user_id'         => $admin->id,
@@ -96,11 +98,11 @@ class InventorySeeder extends Seeder
                     'reference_id'    => 'INIT-' . date('Ymd'),
                 ]);
 
-                // Update saldo akhirnya di master data
+                // Sync the final balance in the master data
                 $material->update(['current_stock' => $initialQty]);
             }
         }
 
-        $this->command->info('✅ Inventory Data Seeded Successfully!');
+        $this->command->info('Inventory data seeded successfully!');
     }
 }

@@ -17,39 +17,39 @@ beforeEach(function () {
         'is_active' => true,
         'username' => 'admin_test'
     ]);
-    
+
     $this->manager = User::factory()->create([
         'role' => 'manager',
         'is_active' => true,
         'username' => 'manager_test'
     ]);
-    
+
     $this->cashier = User::factory()->create([
         'role' => 'cashier',
         'is_active' => true,
         'username' => 'cashier_test'
     ]);
-    
+
     $this->inventory = User::factory()->create([
         'role' => 'inventory',
         'is_active' => true,
         'username' => 'inventory_test'
     ]);
-    
+
     // Clear cache before each test
     Cache::flush();
-    
+
     // Create test categories
     $this->bahanPokok = RawMaterialCategory::factory()->create([
         'name' => 'Bahan Pokok',
         'description' => 'Kategori bahan pokok'
     ]);
-    
+
     $this->bumbuDapur = RawMaterialCategory::factory()->create([
         'name' => 'Bumbu Dapur',
         'description' => 'Kategori bumbu dapur'
     ]);
-    
+
     // Create test materials
     $this->beras = RawMaterial::factory()->create([
         'category_id' => $this->bahanPokok->id,
@@ -60,7 +60,7 @@ beforeEach(function () {
         'minimum_stock' => 20.00,
         'is_active' => true,
     ]);
-    
+
     $this->gula = RawMaterial::factory()->create([
         'category_id' => $this->bahanPokok->id,
         'sku' => 'RM-0002-GLA',
@@ -70,7 +70,7 @@ beforeEach(function () {
         'minimum_stock' => 10.00,
         'is_active' => true,
     ]);
-    
+
     $this->garam = RawMaterial::factory()->create([
         'category_id' => $this->bumbuDapur->id,
         'sku' => 'RM-0003-GRM',
@@ -272,7 +272,7 @@ describe('Security & Authorization Testing', function () {
     it('prevents unauthenticated users from accessing material endpoints', function () {
         $this->getJson('/api/v1/backoffice/inventory/materials')
             ->assertStatus(Response::HTTP_UNAUTHORIZED);
-        
+
         $this->postJson('/api/v1/backoffice/inventory/materials', [
             'sku' => 'RM-TEST-001',
             'name' => 'Test Material',
@@ -284,10 +284,10 @@ describe('Security & Authorization Testing', function () {
 
     it('prevents cashiers from accessing material management', function () {
         Sanctum::actingAs($this->cashier);
-        
+
         $this->getJson('/api/v1/backoffice/inventory/materials')
             ->assertStatus(Response::HTTP_FORBIDDEN);
-        
+
         $this->postJson('/api/v1/backoffice/inventory/materials', [
             'sku' => 'RM-TEST-002',
             'name' => 'Cashier Material',
@@ -299,10 +299,10 @@ describe('Security & Authorization Testing', function () {
 
     it('allows inventory to manage materials', function () {
         Sanctum::actingAs($this->inventory);
-        
+
         $this->getJson('/api/v1/backoffice/inventory/materials')
             ->assertStatus(Response::HTTP_OK);
-        
+
         $response = $this->postJson('/api/v1/backoffice/inventory/materials', [
             'sku' => 'RM-INV-001',
             'name' => 'Inventory Material',
@@ -310,16 +310,16 @@ describe('Security & Authorization Testing', function () {
             'minimum_stock' => 10,
             'category_id' => $this->bahanPokok->id,
         ]);
-        
+
         $response->assertStatus(Response::HTTP_CREATED);
     });
 
     it('allows admin to manage materials', function () {
         Sanctum::actingAs($this->admin);
-        
+
         $this->getJson('/api/v1/backoffice/inventory/materials')
             ->assertStatus(Response::HTTP_OK);
-        
+
         $response = $this->postJson('/api/v1/backoffice/inventory/materials', [
             'sku' => 'RM-ADM-001',
             'name' => 'Admin Material',
@@ -327,16 +327,16 @@ describe('Security & Authorization Testing', function () {
             'minimum_stock' => 10,
             'category_id' => $this->bahanPokok->id,
         ]);
-        
+
         $response->assertStatus(Response::HTTP_CREATED);
     });
 
     it('allows manager to manage materials', function () {
         Sanctum::actingAs($this->manager);
-        
+
         $this->getJson('/api/v1/backoffice/inventory/materials')
             ->assertStatus(Response::HTTP_OK);
-        
+
         $response = $this->postJson('/api/v1/backoffice/inventory/materials', [
             'sku' => 'RM-MGR-001',
             'name' => 'Manager Material',
@@ -344,7 +344,7 @@ describe('Security & Authorization Testing', function () {
             'minimum_stock' => 10,
             'category_id' => $this->bahanPokok->id,
         ]);
-        
+
         $response->assertStatus(Response::HTTP_CREATED);
     });
 
@@ -353,9 +353,9 @@ describe('Security & Authorization Testing', function () {
             'role' => 'admin',
             'is_active' => false,
         ]);
-        
+
         Sanctum::actingAs($inactiveAdmin);
-        
+
         $this->getJson('/api/v1/backoffice/inventory/materials')
             ->assertStatus(Response::HTTP_FORBIDDEN);
     });
@@ -364,14 +364,14 @@ describe('Security & Authorization Testing', function () {
         Sanctum::actingAs($this->admin);
 
         $maliciousSearch = "test' OR '1'='1";
-        
-        $response = $this->getJson('/api/v1/backoffice/inventory/materials?keyword=' . urlencode($maliciousSearch));
+
+        $response = $this->getJson('/api/v1/backoffice/inventory/materials?search=' . urlencode($maliciousSearch));
 
         $response->assertStatus(Response::HTTP_OK);
-        
-        // Should not return all materials
+
+        // Should not return all materials — should only return 0 because no name/sku contains this
         $responseData = $response->json('data');
-        expect(count($responseData))->toBeLessThanOrEqual(RawMaterial::count());
+        expect(count($responseData))->toBe(0);
     });
 });
 
@@ -396,7 +396,7 @@ describe('Data Integrity & State Transition', function () {
         $response = $this->postJson('/api/v1/backoffice/inventory/materials', $payload);
 
         $response->assertStatus(Response::HTTP_CREATED);
-        
+
         $this->assertDatabaseHas('raw_materials', [
             'sku' => 'RM-FORCE-ZERO',
             'current_stock' => 0,
@@ -421,7 +421,7 @@ describe('Data Integrity & State Transition', function () {
         $response = $this->putJson("/api/v1/backoffice/inventory/materials/{$this->beras->id}", $payload);
 
         $response->assertStatus(Response::HTTP_OK);
-        
+
         $this->assertDatabaseHas('raw_materials', [
             'id' => $this->beras->id,
             'current_stock' => $originalStock,
@@ -443,7 +443,7 @@ describe('Data Integrity & State Transition', function () {
         $response = $this->putJson("/api/v1/backoffice/inventory/materials/{$this->beras->id}", $payload);
 
         $response->assertStatus(Response::HTTP_OK);
-        
+
         $this->assertDatabaseHas('raw_materials', [
             'id' => $this->beras->id,
             'is_active' => false,
@@ -495,6 +495,11 @@ describe('Data Integrity & State Transition', function () {
 
         $response->assertStatus(Response::HTTP_UNPROCESSABLE_ENTITY)
             ->assertJsonValidationErrors(['category_id']);
+
+        // Verify category is still soft-deleted
+        $this->assertSoftDeleted('raw_material_categories', [
+            'id' => $this->bumbuDapur->id,
+        ]);
     });
 });
 
@@ -530,7 +535,7 @@ describe('Idempotency Testing', function () {
         Sanctum::actingAs($this->admin);
 
         $nonExistentId = 99999;
-        
+
         $this->putJson("/api/v1/backoffice/inventory/materials/{$nonExistentId}", [
             'category_id' => $this->bahanPokok->id,
             'sku' => 'RM-NONEXISTENT',
@@ -544,7 +549,7 @@ describe('Idempotency Testing', function () {
         Sanctum::actingAs($this->admin);
 
         $nonExistentId = 99999;
-        
+
         $this->getJson("/api/v1/backoffice/inventory/materials/{$nonExistentId}")
             ->assertStatus(Response::HTTP_NOT_FOUND);
     });
@@ -552,7 +557,6 @@ describe('Idempotency Testing', function () {
     it('returns 404 or 405 when attempting to delete via API (destroy excluded)', function () {
         Sanctum::actingAs($this->admin);
 
-        // Destroy route is excluded, so should return 404 or 405
         $response = $this->deleteJson("/api/v1/backoffice/inventory/materials/{$this->beras->id}");
 
         expect(in_array($response->status(), [
@@ -657,31 +661,39 @@ describe('Error Handling & Validation', function () {
             ->assertJsonValidationErrors(['minimum_stock']);
     });
 
-    it('handles invalid pagination parameter gracefully', function () {
+    it('caps per_page at 100 when requesting more', function () {
         Sanctum::actingAs($this->admin);
 
         $response = $this->getJson('/api/v1/backoffice/inventory/materials?per_page=999999');
 
-        // Should cap at 100 (based on controller logic: min((int) 999999, 100))
         $response->assertStatus(Response::HTTP_OK);
-        
+
         $meta = $response->json('meta');
-        expect($meta['per_page'])->toBeLessThanOrEqual(100);
+        expect($meta['per_page'])->toBe(100);
     });
 
-    it('handles string per_page gracefully', function () {
+    it('falls back to default per_page when input is invalid string', function () {
         Sanctum::actingAs($this->admin);
 
         $response = $this->getJson('/api/v1/backoffice/inventory/materials?per_page=abc');
 
-        // (int) 'abc' = 0, min(0, 100) = 0
-        // Then repository getAll with perPage=0 will return Collection
-        // This might cause TypeError if controller expects paginator
-        // Adjust expectation based on actual behavior
-        expect(in_array($response->status(), [
-            Response::HTTP_OK,
-            Response::HTTP_INTERNAL_SERVER_ERROR,
-        ]))->toBeTrue();
+        // Should fallback gracefully (default 15), NOT error
+        $response->assertStatus(Response::HTTP_OK);
+
+        $meta = $response->json('meta');
+        expect($meta['per_page'])->toBeGreaterThan(0);
+        expect($meta['per_page'])->toBeLessThanOrEqual(100);
+    });
+
+    it('falls back to default per_page when input is zero', function () {
+        Sanctum::actingAs($this->admin);
+
+        $response = $this->getJson('/api/v1/backoffice/inventory/materials?per_page=0');
+
+        $response->assertStatus(Response::HTTP_OK);
+
+        $meta = $response->json('meta');
+        expect($meta['per_page'])->toBeGreaterThan(0);
     });
 });
 
@@ -693,7 +705,6 @@ describe('Concurrency / Race Condition', function () {
     it('handles concurrent material creation requests safely', function () {
         Sanctum::actingAs($this->admin);
 
-        // Simulate concurrent requests with unique SKUs
         $responses = [];
         for ($i = 1; $i <= 5; $i++) {
             $responses[] = $this->postJson('/api/v1/backoffice/inventory/materials', [
@@ -705,19 +716,16 @@ describe('Concurrency / Race Condition', function () {
             ]);
         }
 
-        // All should succeed
         foreach ($responses as $response) {
             $response->assertStatus(Response::HTTP_CREATED);
         }
 
-        // Verify all materials were created
         expect(RawMaterial::where('sku', 'like', 'RM-CONCURRENT-%')->count())->toBe(5);
     });
 
     it('prevents duplicate SKU during concurrent creation', function () {
         Sanctum::actingAs($this->admin);
 
-        // Simulate concurrent requests with same SKU
         $responses = [];
         for ($i = 1; $i <= 3; $i++) {
             $responses[] = $this->postJson('/api/v1/backoffice/inventory/materials', [
@@ -729,10 +737,9 @@ describe('Concurrency / Race Condition', function () {
             ]);
         }
 
-        // Only one should succeed
         $successCount = 0;
         $conflictCount = 0;
-        
+
         foreach ($responses as $response) {
             if ($response->status() === Response::HTTP_CREATED) {
                 $successCount++;
@@ -743,8 +750,7 @@ describe('Concurrency / Race Condition', function () {
 
         expect($successCount)->toBe(1);
         expect($conflictCount)->toBe(2);
-        
-        // Only one material should exist with this SKU
+
         expect(RawMaterial::where('sku', 'RM-DUPLICATE-SKU')->count())->toBe(1);
     });
 
@@ -753,7 +759,6 @@ describe('Concurrency / Race Condition', function () {
 
         $materialId = $this->beras->id;
 
-        // Simulate concurrent updates
         $responses = [];
         for ($i = 1; $i <= 3; $i++) {
             $responses[] = $this->putJson("/api/v1/backoffice/inventory/materials/{$materialId}", [
@@ -766,14 +771,16 @@ describe('Concurrency / Race Condition', function () {
             ]);
         }
 
-        // All should succeed
         foreach ($responses as $response) {
             $response->assertStatus(Response::HTTP_OK);
         }
 
-        // Final state should be consistent
         $material = RawMaterial::find($materialId);
-        expect(in_array($material->name, ['Updated Material 1', 'Updated Material 2', 'Updated Material 3']))->toBeTrue();
+        expect(in_array($material->name, [
+            'Updated Material 1',
+            'Updated Material 2',
+            'Updated Material 3',
+        ]))->toBeTrue();
     });
 });
 
@@ -785,29 +792,25 @@ describe('Filter & Search Testing', function () {
     it('filters materials by keyword (name)', function () {
         Sanctum::actingAs($this->admin);
 
-        $response = $this->getJson('/api/v1/backoffice/inventory/materials?keyword=' . urlencode('Beras'));
+        $response = $this->getJson('/api/v1/backoffice/inventory/materials?search=' . urlencode('Beras'));
 
-        $response->assertStatus(Response::HTTP_OK)
-            ->assertJsonFragment([
-                'name' => 'Beras Premium',
-            ])
-            ->assertJsonMissing([
-                'name' => 'Gula Pasir',
-            ]);
+        $response->assertStatus(Response::HTTP_OK);
+
+        $data = $response->json('data');
+        expect($data)->toHaveCount(1);
+        expect($data[0]['name'])->toBe('Beras Premium');
     });
 
     it('filters materials by keyword (SKU)', function () {
         Sanctum::actingAs($this->admin);
 
-        $response = $this->getJson('/api/v1/backoffice/inventory/materials?keyword=' . urlencode('RM-0002'));
+        $response = $this->getJson('/api/v1/backoffice/inventory/materials?search=' . urlencode('RM-0002'));
 
-        $response->assertStatus(Response::HTTP_OK)
-            ->assertJsonFragment([
-                'sku' => 'RM-0002-GLA',
-            ])
-            ->assertJsonMissing([
-                'sku' => 'RM-0001-BRS',
-            ]);
+        $response->assertStatus(Response::HTTP_OK);
+
+        $data = $response->json('data');
+        expect($data)->toHaveCount(1);
+        expect($data[0]['sku'])->toBe('RM-0002-GLA');
     });
 
     it('filters materials by category_id', function () {
@@ -815,16 +818,14 @@ describe('Filter & Search Testing', function () {
 
         $response = $this->getJson("/api/v1/backoffice/inventory/materials?category_id={$this->bumbuDapur->id}");
 
-        $response->assertStatus(Response::HTTP_OK)
-            ->assertJsonFragment([
-                'name' => 'Garam Halus',
-            ])
-            ->assertJsonMissing([
-                'name' => 'Beras Premium',
-            ]);
+        $response->assertStatus(Response::HTTP_OK);
+
+        $data = $response->json('data');
+        expect($data)->toHaveCount(1);
+        expect($data[0]['name'])->toBe('Garam Halus');
     });
 
-    it('filters materials by is_active', function () {
+    it('filters materials by is_active = true', function () {
         Sanctum::actingAs($this->admin);
 
         // Deactivate one material
@@ -832,13 +833,59 @@ describe('Filter & Search Testing', function () {
 
         $response = $this->getJson('/api/v1/backoffice/inventory/materials?is_active=1');
 
-        $response->assertStatus(Response::HTTP_OK)
-            ->assertJsonFragment([
-                'name' => 'Beras Premium',
-            ])
-            ->assertJsonMissing([
-                'name' => 'Gula Pasir',
-            ]);
+        $response->assertStatus(Response::HTTP_OK);
+
+        $data = $response->json('data');
+        $names = array_column($data, 'name');
+        expect($names)->toContain('Beras Premium');
+        expect($names)->not->toContain('Gula Pasir');
+    });
+
+    it('filters materials by is_active = false (inactive only)', function () {
+        Sanctum::actingAs($this->admin);
+
+        // Deactivate one material
+        $this->gula->update(['is_active' => false]);
+
+        $response = $this->getJson('/api/v1/backoffice/inventory/materials?is_active=0');
+
+        $response->assertStatus(Response::HTTP_OK);
+
+        $data = $response->json('data');
+        $names = array_column($data, 'name');
+        expect($names)->toContain('Gula Pasir');
+        expect($names)->not->toContain('Beras Premium');
+    });
+
+    it('filters materials by is_low_stock', function () {
+        Sanctum::actingAs($this->admin);
+
+        // Garam: current 5 < min 10 → low stock
+        // Beras: current 100.50 > min 20 → not low stock
+        $response = $this->getJson('/api/v1/backoffice/inventory/materials?is_low_stock=1');
+
+        $response->assertStatus(Response::HTTP_OK);
+
+        $data = $response->json('data');
+        $names = array_column($data, 'name');
+        expect($names)->toContain('Garam Halus');
+        expect($names)->not->toContain('Beras Premium');
+    });
+
+    it('filters materials by is_out_of_stock', function () {
+        Sanctum::actingAs($this->admin);
+
+        // Set Garam stock = 0
+        $this->garam->update(['current_stock' => 0]);
+
+        $response = $this->getJson('/api/v1/backoffice/inventory/materials?is_out_of_stock=1');
+
+        $response->assertStatus(Response::HTTP_OK);
+
+        $data = $response->json('data');
+        $names = array_column($data, 'name');
+        expect($names)->toContain('Garam Halus');
+        expect($names)->not->toContain('Beras Premium');
     });
 
     it('returns paginated results with correct meta', function () {
@@ -883,34 +930,31 @@ describe('Performance Testing', function () {
         Sanctum::actingAs($this->admin);
 
         $startTime = microtime(true);
-        
+
         $response = $this->getJson('/api/v1/backoffice/inventory/materials');
-        
+
         $endTime = microtime(true);
         $responseTime = ($endTime - $startTime) * 1000;
 
         $response->assertStatus(Response::HTTP_OK);
-        
+
         expect($responseTime)->toBeLessThan(500);
     });
 
     it('avoids N+1 query problem by eager loading category', function () {
         Sanctum::actingAs($this->admin);
 
-        // Create materials with categories
         RawMaterial::factory()->count(10)->create([
             'category_id' => $this->bahanPokok->id,
         ]);
 
-        // Enable query log
         \DB::enableQueryLog();
 
         $this->getJson('/api/v1/backoffice/inventory/materials');
 
         $queries = \DB::getQueryLog();
-        
+
         // Should only have a few queries (not 1 + N)
-        // 1 for count, 1 for paginate, 1 for categories
         expect(count($queries))->toBeLessThan(5);
     });
 });
@@ -924,7 +968,7 @@ describe('Rate Limiting & Throttling', function () {
         Sanctum::actingAs($this->admin);
 
         $response = $this->getJson('/api/v1/backoffice/inventory/materials');
-        
+
         expect($response->headers->has('X-RateLimit-Limit'))->toBeTrue();
         expect($response->headers->has('X-RateLimit-Remaining'))->toBeTrue();
     });

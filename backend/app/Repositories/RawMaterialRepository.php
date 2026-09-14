@@ -28,7 +28,7 @@ class RawMaterialRepository implements RawMaterialRepositoryInterface
     /**
      * Get all raw materials with optional filtering and relations.
      *
-     * @param array $filters Filters (keyword, category_id, is_active).
+     * @param array $filters Filters (search, category_id, is_active, is_low_stock).
      * @param int|null $perPage Number of items per page for pagination.
      * @return Collection|LengthAwarePaginator
      */
@@ -37,19 +37,32 @@ class RawMaterialRepository implements RawMaterialRepositoryInterface
         // Always load category relation to prevent N+1 query problem
         $query = $this->model->with('category');
 
-        if (isset($filters['keyword']) && $filters['keyword'] !== '') {
+        // Search filter — matches name or SKU
+        if (!empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
-                $q->where('name', 'ilike', "%{$filters['keyword']}%")
-                  ->orWhere('sku', 'ilike', "%{$filters['keyword']}%");
+                $q->where('name', 'ilike', "%{$filters['search']}%")
+                  ->orWhere('sku', 'ilike', "%{$filters['search']}%");
             });
         }
 
-        if (isset($filters['category_id'])) {
+        // Category filter
+        if (!empty($filters['category_id'])) {
             $query->where('category_id', $filters['category_id']);
         }
 
-        if (isset($filters['is_active'])) {
-            $query->where('is_active', $filters['is_active']);
+        // Active filter — handles boolean as string ("true" / "false") or boolean
+        if (isset($filters['is_active']) && $filters['is_active'] !== '') {
+            $query->where('is_active', filter_var($filters['is_active'], FILTER_VALIDATE_BOOLEAN));
+        }
+
+        // Low stock filter — current_stock <= minimum_stock
+        if (!empty($filters['is_low_stock'])) {
+            $query->whereColumn('current_stock', '<=', 'minimum_stock');
+        }
+
+        // Out of stock (stok = 0)
+        if (!empty($filters['is_out_of_stock'])) {
+            $query->where('current_stock', '=', 0);
         }
 
         $query->latest();
@@ -104,7 +117,7 @@ class RawMaterialRepository implements RawMaterialRepositoryInterface
     public function update(int $id, array $data): bool
     {
         $material = $this->findById($id);
-        
+
         if (!$material) {
             return false;
         }
@@ -121,7 +134,7 @@ class RawMaterialRepository implements RawMaterialRepositoryInterface
     public function delete(int $id): bool
     {
         $material = $this->findById($id);
-        
+
         if (!$material) {
             return false;
         }
